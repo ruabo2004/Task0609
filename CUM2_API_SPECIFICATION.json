@@ -1,0 +1,934 @@
+{
+  "cụm2_room_management_apis": {
+    "base_url": "http://localhost:5000/api",
+    "endpoints": {
+      "get_all_rooms": {
+        "method": "GET",
+        "url": "/rooms",
+        "description": "Lấy danh sách tất cả phòng với thông tin chi tiết",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "query_parameters": {
+          "page": {
+            "type": "integer",
+            "required": false,
+            "default": 1,
+            "description": "Số trang",
+            "example": 1
+          },
+          "limit": {
+            "type": "integer",
+            "required": false,
+            "default": 12,
+            "min": 1,
+            "max": 50,
+            "description": "Số lượng phòng mỗi trang",
+            "example": 12
+          },
+          "sort_by": {
+            "type": "string",
+            "required": false,
+            "default": "price",
+            "enum": ["price", "type", "size", "created_at"],
+            "description": "Sắp xếp theo",
+            "example": "price"
+          },
+          "sort_order": {
+            "type": "string",
+            "required": false,
+            "default": "asc",
+            "enum": ["asc", "desc"],
+            "description": "Thứ tự sắp xếp",
+            "example": "asc"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Rooms retrieved successfully",
+            "data": {
+              "rooms": [
+                {
+                  "room_id": 1,
+                  "room_number": "101",
+                  "room_name": "Standard Garden View",
+                  "type_id": 1,
+                  "type_name": "Standard Room",
+                  "description": "Phòng tiêu chuẩn view vườn tầng 1",
+                  "floor_number": 1,
+                  "room_size": 25.5,
+                  "price_per_night": 500000,
+                  "weekend_price": 600000,
+                  "holiday_price": 700000,
+                  "max_occupancy": 2,
+                  "view_type": "garden",
+                  "bed_type": "double",
+                  "bathroom_type": "private",
+                  "wifi_available": true,
+                  "ac_available": true,
+                  "tv_available": true,
+                  "fridge_available": true,
+                  "balcony_available": false,
+                  "smoking_allowed": false,
+                  "pet_allowed": false,
+                  "status": "available",
+                  "cleaning_status": "clean",
+                  "amenities": ["WiFi miễn phí", "Điều hòa", "TV LCD", "Tủ lạnh mini"],
+                  "images": ["room101_1.jpg", "room101_2.jpg"],
+                  "type_description": "Phòng tiêu chuẩn với đầy đủ tiện nghi cơ bản",
+                  "type_amenities": ["WiFi miễn phí", "Điều hòa", "TV LCD", "Tủ lạnh mini", "Máy sấy tóc"],
+                  "created_at": "2025-01-15T10:30:00.000Z",
+                  "updated_at": "2025-01-15T10:30:00.000Z"
+                }
+              ],
+              "pagination": {
+                "page": 1,
+                "limit": 12,
+                "total": 12,
+                "totalPages": 1,
+                "hasNext": false,
+                "hasPrev": false
+              }
+            }
+          }
+        }
+      },
+
+      "get_room_by_id": {
+        "method": "GET",
+        "url": "/rooms/{room_id}",
+        "description": "Lấy thông tin chi tiết của một phòng",
+        "path_parameters": {
+          "room_id": {
+            "type": "integer",
+            "required": true,
+            "description": "ID của phòng",
+            "example": 1
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Room retrieved successfully",
+            "data": {
+              "room": {
+                "room_id": 1,
+                "room_number": "101",
+                "room_name": "Standard Garden View",
+                "type_id": 1,
+                "type_name": "Standard Room",
+                "description": "Phòng tiêu chuẩn view vườn tầng 1 với không gian thoáng mát",
+                "floor_number": 1,
+                "room_size": 25.5,
+                "price_per_night": 500000,
+                "weekend_price": 600000,
+                "holiday_price": 700000,
+                "max_occupancy": 2,
+                "view_type": "garden",
+                "bed_type": "double",
+                "bathroom_type": "private",
+                "wifi_available": true,
+                "ac_available": true,
+                "tv_available": true,
+                "fridge_available": true,
+                "balcony_available": false,
+                "smoking_allowed": false,
+                "pet_allowed": false,
+                "status": "available",
+                "cleaning_status": "clean",
+                "last_maintenance": "2024-12-01",
+                "amenities": ["WiFi miễn phí", "Điều hòa", "TV LCD 32 inch", "Tủ lạnh mini"],
+                "images": ["room101_1.jpg", "room101_2.jpg", "room101_3.jpg"],
+                "type_description": "Phòng tiêu chuẩn với đầy đủ tiện nghi cơ bản",
+                "type_amenities": ["WiFi miễn phí", "Điều hòa", "TV LCD", "Tủ lạnh mini", "Máy sấy tóc"],
+                "created_at": "2025-01-15T10:30:00.000Z",
+                "updated_at": "2025-01-15T10:30:00.000Z"
+              }
+            }
+          }
+        },
+        "response_errors": [
+          {
+            "status": 404,
+            "body": {
+              "success": false,
+              "message": "Room not found"
+            }
+          }
+        ]
+      },
+
+      "get_room_types": {
+        "method": "GET",
+        "url": "/rooms/types",
+        "description": "Lấy danh sách tất cả loại phòng",
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Room types retrieved successfully",
+            "data": {
+              "room_types": [
+                {
+                  "type_id": 1,
+                  "type_name": "Standard Room",
+                  "description": "Phòng tiêu chuẩn với đầy đủ tiện nghi cơ bản",
+                  "base_price": 500000,
+                  "max_occupancy": 2,
+                  "amenities": ["WiFi miễn phí", "Điều hòa", "TV LCD", "Tủ lạnh mini", "Máy sấy tóc"],
+                  "images": ["standard1.jpg", "standard2.jpg", "standard3.jpg"],
+                  "status": "active",
+                  "room_count": 3,
+                  "available_count": 2,
+                  "created_at": "2025-01-15T10:30:00.000Z"
+                },
+                {
+                  "type_id": 2,
+                  "type_name": "Deluxe Room",
+                  "description": "Phòng cao cấp với view đẹp và không gian rộng rãi",
+                  "base_price": 800000,
+                  "max_occupancy": 3,
+                  "amenities": ["WiFi miễn phí", "Điều hòa", "TV LCD 42 inch", "Tủ lạnh", "Ban công", "Máy pha cà phê", "Két an toàn"],
+                  "images": ["deluxe1.jpg", "deluxe2.jpg", "deluxe3.jpg"],
+                  "status": "active",
+                  "room_count": 3,
+                  "available_count": 3,
+                  "created_at": "2025-01-15T10:30:00.000Z"
+                }
+              ]
+            }
+          }
+        }
+      },
+
+      "search_rooms": {
+        "method": "GET",
+        "url": "/rooms/search",
+        "description": "Tìm kiếm phòng với các bộ lọc nâng cao",
+        "query_parameters": {
+          "check_in_date": {
+            "type": "date",
+            "required": false,
+            "format": "YYYY-MM-DD",
+            "description": "Ngày check-in",
+            "example": "2025-01-20"
+          },
+          "check_out_date": {
+            "type": "date",
+            "required": false,
+            "format": "YYYY-MM-DD",
+            "description": "Ngày check-out",
+            "example": "2025-01-23"
+          },
+          "num_adults": {
+            "type": "integer",
+            "required": false,
+            "default": 1,
+            "min": 1,
+            "max": 10,
+            "description": "Số người lớn",
+            "example": 2
+          },
+          "num_children": {
+            "type": "integer",
+            "required": false,
+            "default": 0,
+            "min": 0,
+            "max": 5,
+            "description": "Số trẻ em",
+            "example": 0
+          },
+          "type_id": {
+            "type": "integer",
+            "required": false,
+            "description": "ID loại phòng",
+            "example": 1
+          },
+          "min_price": {
+            "type": "integer",
+            "required": false,
+            "min": 0,
+            "description": "Giá tối thiểu (VND)",
+            "example": 400000
+          },
+          "max_price": {
+            "type": "integer",
+            "required": false,
+            "description": "Giá tối đa (VND)",
+            "example": 1000000
+          },
+          "view_type": {
+            "type": "string",
+            "required": false,
+            "enum": ["sea", "mountain", "city", "garden", "pool"],
+            "description": "Loại view",
+            "example": "sea"
+          },
+          "bed_type": {
+            "type": "string",
+            "required": false,
+            "enum": ["single", "double", "queen", "king", "twin"],
+            "description": "Loại giường",
+            "example": "double"
+          },
+          "amenities": {
+            "type": "string",
+            "required": false,
+            "description": "Tiện ích (cách nhau bởi dấu phẩy)",
+            "example": "WiFi miễn phí,Điều hòa,Ban công"
+          },
+          "floor_number": {
+            "type": "integer",
+            "required": false,
+            "description": "Số tầng",
+            "example": 3
+          },
+          "wifi_required": {
+            "type": "boolean",
+            "required": false,
+            "description": "Yêu cầu WiFi",
+            "example": true
+          },
+          "balcony_required": {
+            "type": "boolean",
+            "required": false,
+            "description": "Yêu cầu ban công",
+            "example": true
+          },
+          "page": {
+            "type": "integer",
+            "required": false,
+            "default": 1,
+            "description": "Số trang",
+            "example": 1
+          },
+          "limit": {
+            "type": "integer",
+            "required": false,
+            "default": 12,
+            "min": 1,
+            "max": 50,
+            "description": "Số lượng phòng mỗi trang",
+            "example": 12
+          },
+          "sort_by": {
+            "type": "string",
+            "required": false,
+            "default": "price",
+            "enum": ["price", "type", "size", "rating", "created_at"],
+            "description": "Sắp xếp theo",
+            "example": "price"
+          },
+          "sort_order": {
+            "type": "string",
+            "required": false,
+            "default": "asc",
+            "enum": ["asc", "desc"],
+            "description": "Thứ tự sắp xếp",
+            "example": "asc"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Room search completed successfully",
+            "data": {
+              "rooms": [
+                {
+                  "room_id": 4,
+                  "room_number": "301",
+                  "room_name": "Deluxe Sea View",
+                  "type_name": "Deluxe Room",
+                  "price_per_night": 800000,
+                  "weekend_price": 950000,
+                  "holiday_price": 1100000,
+                  "view_type": "sea",
+                  "bed_type": "queen",
+                  "room_size": 35.0,
+                  "max_occupancy": 3,
+                  "amenities": ["WiFi miễn phí", "Điều hòa", "TV LCD 42 inch", "Ban công", "Máy pha cà phê"],
+                  "images": ["room301_1.jpg", "room301_2.jpg"],
+                  "status": "available",
+                  "availability": {
+                    "is_available": true,
+                    "blocked_dates": [],
+                    "special_rates": []
+                  }
+                }
+              ],
+              "pagination": {
+                "page": 1,
+                "limit": 12,
+                "total": 1,
+                "totalPages": 1,
+                "hasNext": false,
+                "hasPrev": false
+              },
+              "applied_filters": {
+                "check_in_date": "2025-01-20",
+                "check_out_date": "2025-01-23",
+                "num_adults": 2,
+                "view_type": "sea",
+                "price_range": {
+                  "min": 0,
+                  "max": 1000000
+                }
+              },
+              "search_summary": {
+                "total_found": 1,
+                "search_time_ms": 245,
+                "filters_applied": 3
+              }
+            }
+          }
+        }
+      },
+
+      "get_available_rooms": {
+        "method": "GET",
+        "url": "/rooms/available",
+        "description": "Lấy danh sách phòng trống theo ngày",
+        "query_parameters": {
+          "checkInDate": {
+            "type": "date",
+            "required": true,
+            "format": "YYYY-MM-DD",
+            "description": "Ngày check-in",
+            "example": "2025-01-20"
+          },
+          "checkOutDate": {
+            "type": "date",
+            "required": true,
+            "format": "YYYY-MM-DD",
+            "description": "Ngày check-out",
+            "example": "2025-01-23"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Available rooms retrieved successfully",
+            "data": {
+              "rooms": [
+                {
+                  "room_id": 2,
+                  "room_number": "102",
+                  "room_name": "Standard Garden View",
+                  "type_name": "Standard Room",
+                  "price_per_night": 500000,
+                  "weekend_price": 600000,
+                  "holiday_price": 700000,
+                  "max_occupancy": 2,
+                  "amenities": ["WiFi miễn phí", "Điều hòa", "TV LCD"],
+                  "images": ["room102_1.jpg"],
+                  "status": "available",
+                  "pricing_for_period": {
+                    "base_nights": 3,
+                    "weekend_nights": 0,
+                    "holiday_nights": 0,
+                    "total_amount": 1500000,
+                    "average_per_night": 500000
+                  }
+                }
+              ],
+              "date_range": {
+                "check_in": "2025-01-20",
+                "check_out": "2025-01-23",
+                "nights": 3
+              }
+            }
+          }
+        },
+        "response_errors": [
+          {
+            "status": 400,
+            "body": {
+              "success": false,
+              "message": "Check-in and check-out dates are required"
+            }
+          },
+          {
+            "status": 400,
+            "body": {
+              "success": false,
+              "message": "Check-out date must be after check-in date"
+            }
+          }
+        ]
+      },
+
+      "get_rooms_by_type": {
+        "method": "GET",
+        "url": "/rooms/type/{type_id}",
+        "description": "Lấy danh sách phòng theo loại",
+        "path_parameters": {
+          "type_id": {
+            "type": "integer",
+            "required": true,
+            "description": "ID loại phòng",
+            "example": 1
+          }
+        },
+        "query_parameters": {
+          "page": {
+            "type": "integer",
+            "required": false,
+            "default": 1,
+            "description": "Số trang",
+            "example": 1
+          },
+          "limit": {
+            "type": "integer",
+            "required": false,
+            "default": 12,
+            "description": "Số lượng phòng mỗi trang",
+            "example": 12
+          },
+          "status": {
+            "type": "string",
+            "required": false,
+            "enum": ["available", "occupied", "maintenance", "all"],
+            "default": "available",
+            "description": "Lọc theo trạng thái",
+            "example": "available"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Rooms by type retrieved successfully",
+            "data": {
+              "type_info": {
+                "type_id": 1,
+                "type_name": "Standard Room",
+                "description": "Phòng tiêu chuẩn với đầy đủ tiện nghi cơ bản",
+                "base_price": 500000,
+                "max_occupancy": 2
+              },
+              "rooms": [
+                {
+                  "room_id": 1,
+                  "room_number": "101",
+                  "room_name": "Standard Garden View",
+                  "price_per_night": 500000,
+                  "status": "available",
+                  "amenities": ["WiFi miễn phí", "Điều hòa", "TV LCD"],
+                  "images": ["room101_1.jpg"]
+                }
+              ],
+              "pagination": {
+                "page": 1,
+                "limit": 12,
+                "total": 3,
+                "totalPages": 1
+              }
+            }
+          }
+        }
+      },
+
+      "check_room_availability": {
+        "method": "GET",
+        "url": "/rooms/{room_id}/availability",
+        "description": "Kiểm tra tình trạng phòng trống cho phòng cụ thể",
+        "path_parameters": {
+          "room_id": {
+            "type": "integer",
+            "required": true,
+            "description": "ID của phòng",
+            "example": 1
+          }
+        },
+        "query_parameters": {
+          "checkInDate": {
+            "type": "date",
+            "required": true,
+            "format": "YYYY-MM-DD",
+            "description": "Ngày check-in",
+            "example": "2025-01-20"
+          },
+          "checkOutDate": {
+            "type": "date",
+            "required": true,
+            "format": "YYYY-MM-DD",
+            "description": "Ngày check-out",
+            "example": "2025-01-23"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Room availability checked successfully",
+            "data": {
+              "room_id": 1,
+              "is_available": true,
+              "date_range": {
+                "check_in": "2025-01-20",
+                "check_out": "2025-01-23",
+                "nights": 3
+              },
+              "pricing": {
+                "base_nights": 3,
+                "weekend_nights": 0,
+                "holiday_nights": 0,
+                "base_price_per_night": 500000,
+                "weekend_price_per_night": 600000,
+                "holiday_price_per_night": 700000,
+                "total_amount": 1500000,
+                "tax_amount": 150000,
+                "final_amount": 1650000,
+                "breakdown": [
+                  {
+                    "date": "2025-01-20",
+                    "day_type": "weekday",
+                    "price": 500000
+                  },
+                  {
+                    "date": "2025-01-21",
+                    "day_type": "weekday",
+                    "price": 500000
+                  },
+                  {
+                    "date": "2025-01-22",
+                    "day_type": "weekday",
+                    "price": 500000
+                  }
+                ]
+              },
+              "blocked_dates": [],
+              "minimum_stay": 1,
+              "maximum_stay": 30,
+              "cancellation_policy": "free_cancellation_24h"
+            }
+          }
+        },
+        "response_errors": [
+          {
+            "status": 400,
+            "body": {
+              "success": false,
+              "message": "Room is not available for selected dates",
+              "data": {
+                "room_id": 1,
+                "is_available": false,
+                "conflicting_bookings": [
+                  {
+                    "booking_id": 123,
+                    "check_in": "2025-01-21",
+                    "check_out": "2025-01-24"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+
+  "frontend_implementation_guide": {
+    "required_packages": [
+      "react-query@^3.39.3",
+      "react-router-dom@^6.15.0",
+      "react-datepicker@^4.16.0",
+      "react-hook-form@^7.46.1",
+      "axios@^1.5.0",
+      "date-fns@^2.30.0"
+    ],
+
+    "folder_structure": {
+      "components/Room/": [
+        "RoomCard.js",
+        "RoomGrid.js",
+        "RoomList.js",
+        "RoomFilter.js",
+        "RoomSort.js",
+        "RoomImageGallery.js",
+        "RoomAmenities.js",
+        "PriceDisplay.js"
+      ],
+      "components/Search/": [
+        "SearchForm.js",
+        "DateRangePicker.js",
+        "GuestSelector.js",
+        "QuickFilters.js"
+      ],
+      "pages/": [
+        "Rooms.js",
+        "RoomDetail.js",
+        "SearchResults.js"
+      ],
+      "hooks/": [
+        "useRooms.js",
+        "useRoomTypes.js",
+        "useRoomSearch.js",
+        "useRoomFilters.js"
+      ],
+      "services/": [
+        "roomService.js"
+      ],
+      "utils/": [
+        "roomHelpers.js",
+        "priceCalculator.js",
+        "dateHelpers.js"
+      ]
+    },
+
+    "key_features": [
+      "Room grid and list view layouts",
+      "Advanced search and filtering",
+      "Date range picker integration",
+      "Real-time availability checking",
+      "Price calculation with weekend/holiday rates",
+      "Image gallery with lazy loading",
+      "Responsive design for all devices",
+      "URL-based filter persistence",
+      "Infinite scroll pagination",
+      "Sorting and view preferences"
+    ],
+
+    "room_card_props": {
+      "room": {
+        "type": "object",
+        "required": true,
+        "description": "Room data object"
+      },
+      "layout": {
+        "type": "string",
+        "enum": ["grid", "list"],
+        "default": "grid",
+        "description": "Display layout"
+      },
+      "showPrice": {
+        "type": "boolean",
+        "default": true,
+        "description": "Show price information"
+      },
+      "selectedDates": {
+        "type": "object",
+        "properties": {
+          "checkIn": "Date",
+          "checkOut": "Date"
+        },
+        "description": "Selected date range for pricing"
+      },
+      "onSelect": {
+        "type": "function",
+        "description": "Callback when room is selected"
+      }
+    },
+
+    "search_form_fields": {
+      "dateRange": {
+        "type": "object",
+        "properties": {
+          "checkIn": "Date",
+          "checkOut": "Date"
+        },
+        "validation": "checkOut must be after checkIn"
+      },
+      "guests": {
+        "type": "object",
+        "properties": {
+          "adults": "number (1-10)",
+          "children": "number (0-5)"
+        }
+      },
+      "roomType": {
+        "type": "number",
+        "description": "Room type ID"
+      },
+      "priceRange": {
+        "type": "object",
+        "properties": {
+          "min": "number",
+          "max": "number"
+        }
+      },
+      "amenities": {
+        "type": "array",
+        "items": "string",
+        "description": "Selected amenities"
+      },
+      "viewType": {
+        "type": "string",
+        "enum": ["sea", "mountain", "city", "garden", "pool"]
+      },
+      "bedType": {
+        "type": "string",
+        "enum": ["single", "double", "queen", "king", "twin"]
+      }
+    },
+
+    "filter_options": {
+      "room_types": "Dynamic from API",
+      "price_ranges": [
+        {"label": "Dưới 500k", "min": 0, "max": 500000},
+        {"label": "500k - 1tr", "min": 500000, "max": 1000000},
+        {"label": "1tr - 2tr", "min": 1000000, "max": 2000000},
+        {"label": "Trên 2tr", "min": 2000000, "max": 999999999}
+      ],
+      "view_types": [
+        {"value": "sea", "label": "View biển"},
+        {"value": "mountain", "label": "View núi"},
+        {"value": "city", "label": "View thành phố"},
+        {"value": "garden", "label": "View vườn"},
+        {"value": "pool", "label": "View hồ bơi"}
+      ],
+      "bed_types": [
+        {"value": "single", "label": "Giường đơn"},
+        {"value": "double", "label": "Giường đôi"},
+        {"value": "queen", "label": "Giường Queen"},
+        {"value": "king", "label": "Giường King"},
+        {"value": "twin", "label": "Hai giường đơn"}
+      ],
+      "amenities": [
+        "WiFi miễn phí",
+        "Điều hòa",
+        "TV LCD",
+        "Tủ lạnh",
+        "Ban công",
+        "Máy pha cà phê",
+        "Két an toàn",
+        "Bồn tắm jacuzzi",
+        "Máy sấy tóc",
+        "Minibar"
+      ]
+    },
+
+    "sorting_options": [
+      {"value": "price_asc", "label": "Giá thấp đến cao"},
+      {"value": "price_desc", "label": "Giá cao đến thấp"},
+      {"value": "type_asc", "label": "Loại phòng A-Z"},
+      {"value": "size_desc", "label": "Diện tích lớn nhất"},
+      {"value": "rating_desc", "label": "Đánh giá cao nhất"},
+      {"value": "created_desc", "label": "Mới nhất"}
+    ],
+
+    "url_parameters": {
+      "search_page": "/rooms/search?type=1&minPrice=500000&maxPrice=1000000&view=sea&checkIn=2025-01-20&checkOut=2025-01-23",
+      "room_detail": "/rooms/1",
+      "room_type_filter": "/rooms?type=2",
+      "pagination": "/rooms?page=2&limit=12"
+    }
+  },
+
+  "testing_data": {
+    "sample_rooms": [
+      {
+        "room_id": 1,
+        "room_number": "101",
+        "room_name": "Standard Garden View",
+        "type_name": "Standard Room",
+        "price_per_night": 500000,
+        "weekend_price": 600000,
+        "holiday_price": 700000,
+        "view_type": "garden",
+        "bed_type": "double",
+        "room_size": 25.5,
+        "max_occupancy": 2,
+        "status": "available",
+        "amenities": ["WiFi miễn phí", "Điều hòa", "TV LCD"],
+        "images": ["room101_1.jpg", "room101_2.jpg"]
+      },
+      {
+        "room_id": 4,
+        "room_number": "301",
+        "room_name": "Deluxe Sea View",
+        "type_name": "Deluxe Room",
+        "price_per_night": 800000,
+        "weekend_price": 950000,
+        "holiday_price": 1100000,
+        "view_type": "sea",
+        "bed_type": "queen",
+        "room_size": 35.0,
+        "max_occupancy": 3,
+        "status": "available",
+        "amenities": ["WiFi miễn phí", "Điều hòa", "TV LCD 42 inch", "Ban công", "Máy pha cà phê"],
+        "images": ["room301_1.jpg", "room301_2.jpg", "room301_3.jpg"]
+      }
+    ],
+
+    "test_scenarios": [
+      {
+        "name": "Get All Rooms",
+        "endpoint": "GET /rooms",
+        "expected_result": "200 OK with room list and pagination"
+      },
+      {
+        "name": "Search Available Rooms",
+        "endpoint": "GET /rooms/search?check_in_date=2025-01-20&check_out_date=2025-01-23",
+        "expected_result": "200 OK with available rooms for date range"
+      },
+      {
+        "name": "Filter by Price Range",
+        "endpoint": "GET /rooms/search?min_price=500000&max_price=1000000",
+        "expected_result": "200 OK with rooms in price range"
+      },
+      {
+        "name": "Filter by Amenities",
+        "endpoint": "GET /rooms/search?amenities=WiFi miễn phí,Ban công",
+        "expected_result": "200 OK with rooms having specified amenities"
+      },
+      {
+        "name": "Get Room Detail",
+        "endpoint": "GET /rooms/1",
+        "expected_result": "200 OK with detailed room information"
+      },
+      {
+        "name": "Check Room Availability",
+        "endpoint": "GET /rooms/1/availability?checkInDate=2025-01-20&checkOutDate=2025-01-23",
+        "expected_result": "200 OK with availability and pricing details"
+      },
+      {
+        "name": "Invalid Room ID",
+        "endpoint": "GET /rooms/999",
+        "expected_result": "404 Not Found"
+      },
+      {
+        "name": "Invalid Date Range",
+        "endpoint": "GET /rooms/available?checkInDate=2025-01-25&checkOutDate=2025-01-20",
+        "expected_result": "400 Bad Request - Invalid date range"
+      }
+    ]
+  },
+
+  "performance_considerations": {
+    "caching_strategy": {
+      "room_types": "Cache for 1 hour",
+      "room_list": "Cache for 5 minutes",
+      "room_detail": "Cache for 10 minutes",
+      "search_results": "Cache for 2 minutes",
+      "availability": "Cache for 1 minute"
+    },
+    
+    "optimization_tips": [
+      "Use React Query for efficient caching",
+      "Implement lazy loading for images",
+      "Use pagination for large result sets",
+      "Debounce search input changes",
+      "Preload next page of results",
+      "Use skeleton loading for better UX",
+      "Optimize image sizes for different screens",
+      "Implement infinite scroll for mobile"
+    ],
+
+    "seo_considerations": [
+      "Generate SEO-friendly URLs",
+      "Add meta tags for room pages",
+      "Use structured data for rooms",
+      "Implement server-side rendering",
+      "Optimize images with alt text",
+      "Add breadcrumb navigation"
+    ]
+  }
+}
+
+

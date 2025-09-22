@@ -1,0 +1,1453 @@
+{
+  "cum5_uiux_enhancement_apis": {
+    "base_url": "http://localhost:5000/api",
+    "authentication": "Bearer token required for most endpoints",
+    
+    "user_preferences_apis": {
+      "get_all_preferences": {
+        "method": "GET",
+        "url": "/preferences",
+        "description": "Lấy tất cả preferences của user hiện tại",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        },
+        "query_parameters": {
+          "category": {
+            "type": "string",
+            "required": false,
+            "description": "Lọc theo category (theme, language, notifications, etc.)",
+            "example": "theme"
+          },
+          "formatted": {
+            "type": "boolean",
+            "required": false,
+            "default": true,
+            "description": "Trả về dữ liệu đã format thành object nested",
+            "example": true
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "User preferences retrieved successfully",
+            "data": {
+              "preferences": {
+                "theme": {
+                  "mode": "light",
+                  "primaryColor": "#4f9d9d",
+                  "fontSize": "medium",
+                  "compactMode": false
+                },
+                "language": {
+                  "locale": "vi",
+                  "dateFormat": "DD/MM/YYYY",
+                  "timeFormat": "24h",
+                  "currency": "VND"
+                },
+                "notifications": {
+                  "email": true,
+                  "push": true,
+                  "sms": false,
+                  "marketing": false,
+                  "booking": true,
+                  "payment": true
+                },
+                "privacy": {
+                  "profileVisibility": "private",
+                  "showEmail": false,
+                  "showPhone": false,
+                  "allowLocationTracking": false
+                },
+                "booking": {
+                  "defaultGuests": 2,
+                  "preferredCheckInTime": "14:00",
+                  "preferredCheckOutTime": "11:00",
+                  "autoSaveFormData": true
+                },
+                "display": {
+                  "itemsPerPage": 12,
+                  "viewMode": "grid",
+                  "showImages": true,
+                  "autoPlayVideos": false
+                }
+              },
+              "count": 24
+            }
+          }
+        }
+      },
+
+      "get_preference_by_key": {
+        "method": "GET",
+        "url": "/preferences/{key}",
+        "description": "Lấy một preference cụ thể theo key",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        },
+        "path_parameters": {
+          "key": {
+            "type": "string",
+            "required": true,
+            "description": "Key của preference (có thể nested như theme.mode)",
+            "example": "theme.mode"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Preference retrieved successfully",
+            "data": {
+              "preference": {
+                "key": "theme.mode",
+                "value": "light",
+                "type": "string",
+                "category": "theme",
+                "isPublic": false,
+                "updatedAt": "2025-01-15T10:30:00.000Z"
+              }
+            }
+          }
+        }
+      },
+
+      "update_preference": {
+        "method": "PUT",
+        "url": "/preferences/{key}",
+        "description": "Cập nhật một preference",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer {token}"
+        },
+        "path_parameters": {
+          "key": {
+            "type": "string",
+            "required": true,
+            "description": "Key của preference",
+            "example": "theme.mode"
+          }
+        },
+        "request_body": {
+          "value": {
+            "type": "any",
+            "required": true,
+            "description": "Giá trị mới của preference",
+            "example": "dark"
+          },
+          "type": {
+            "type": "string",
+            "required": false,
+            "enum": ["string", "number", "boolean", "json", "object"],
+            "default": "string",
+            "description": "Kiểu dữ liệu của value"
+          },
+          "category": {
+            "type": "string",
+            "required": false,
+            "description": "Category của preference",
+            "example": "theme"
+          },
+          "isPublic": {
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Preference có public không"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Preference updated successfully",
+            "data": {
+              "preference": {
+                "key": "theme.mode",
+                "value": "dark",
+                "type": "string",
+                "category": "theme",
+                "isPublic": false,
+                "updatedAt": "2025-01-15T11:00:00.000Z"
+              }
+            }
+          }
+        }
+      },
+
+      "bulk_update_preferences": {
+        "method": "POST",
+        "url": "/preferences/bulk",
+        "description": "Cập nhật nhiều preferences cùng lúc",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer {token}"
+        },
+        "request_body": {
+          "preferences": {
+            "type": "array",
+            "required": true,
+            "description": "Danh sách preferences cần cập nhật",
+            "items": {
+              "key": {
+                "type": "string",
+                "description": "Key của preference"
+              },
+              "value": {
+                "type": "any",
+                "description": "Giá trị mới"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["string", "number", "boolean", "json", "object"]
+              },
+              "category": {
+                "type": "string",
+                "description": "Category"
+              },
+              "isPublic": {
+                "type": "boolean",
+                "default": false
+              }
+            },
+            "example": [
+              {
+                "key": "theme.mode",
+                "value": "dark",
+                "type": "string",
+                "category": "theme"
+              },
+              {
+                "key": "theme.primaryColor",
+                "value": "#3b82f6",
+                "type": "string",
+                "category": "theme"
+              },
+              {
+                "key": "notifications.email",
+                "value": false,
+                "type": "boolean",
+                "category": "notifications"
+              }
+            ]
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Preferences updated successfully",
+            "data": {
+              "updatedCount": 3,
+              "preferences": [
+                {
+                  "key": "theme.mode",
+                  "value": "dark",
+                  "type": "string",
+                  "category": "theme",
+                  "isPublic": false
+                }
+              ]
+            }
+          }
+        }
+      },
+
+      "reset_preferences": {
+        "method": "DELETE",
+        "url": "/preferences/reset",
+        "description": "Reset preferences về default hoặc xóa theo category",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        },
+        "query_parameters": {
+          "category": {
+            "type": "string",
+            "required": false,
+            "description": "Reset chỉ category này, nếu không có thì reset tất cả",
+            "example": "theme"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Preferences reset to defaults",
+            "data": {
+              "preferences": [
+                {
+                  "key": "theme.mode",
+                  "value": "light",
+                  "type": "string",
+                  "category": "theme",
+                  "isPublic": false
+                }
+              ]
+            }
+          }
+        }
+      },
+
+      "export_preferences": {
+        "method": "GET",
+        "url": "/preferences/export",
+        "description": "Export preferences thành file JSON",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        },
+        "query_parameters": {
+          "format": {
+            "type": "string",
+            "required": false,
+            "enum": ["json"],
+            "default": "json",
+            "description": "Format export"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "headers": {
+            "Content-Type": "application/json",
+            "Content-Disposition": "attachment; filename=\"preferences.json\""
+          },
+          "body": {
+            "theme": {
+              "mode": "dark",
+              "primaryColor": "#3b82f6"
+            },
+            "notifications": {
+              "email": true,
+              "push": false
+            }
+          }
+        }
+      },
+
+      "import_preferences": {
+        "method": "POST",
+        "url": "/preferences/import",
+        "description": "Import preferences từ JSON",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer {token}"
+        },
+        "request_body": {
+          "preferences": {
+            "type": "object",
+            "required": true,
+            "description": "Object chứa preferences cần import",
+            "example": {
+              "theme": {
+                "mode": "dark",
+                "primaryColor": "#3b82f6",
+                "fontSize": "large"
+              },
+              "notifications": {
+                "email": true,
+                "push": false,
+                "sms": false
+              }
+            }
+          },
+          "overwrite": {
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Có ghi đè preferences hiện tại không"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Preferences imported successfully",
+            "data": {
+              "importedCount": 5,
+              "overwrite": false
+            }
+          }
+        }
+      }
+    },
+
+    "search_analytics_apis": {
+      "search_rooms": {
+        "method": "GET",
+        "url": "/search/rooms",
+        "description": "Search phòng với analytics tracking",
+        "headers": {
+          "Authorization": "Bearer {token} (optional)"
+        },
+        "query_parameters": {
+          "q": {
+            "type": "string",
+            "required": false,
+            "max_length": 200,
+            "description": "Search query",
+            "example": "deluxe sea view"
+          },
+          "page": {
+            "type": "integer",
+            "required": false,
+            "default": 1,
+            "min": 1,
+            "description": "Số trang"
+          },
+          "limit": {
+            "type": "integer",
+            "required": false,
+            "default": 12,
+            "min": 1,
+            "max": 100,
+            "description": "Số items per page"
+          },
+          "sort_by": {
+            "type": "string",
+            "required": false,
+            "enum": ["relevance", "price", "rating", "distance", "created_at"],
+            "default": "relevance",
+            "description": "Sắp xếp theo"
+          },
+          "sort_order": {
+            "type": "string",
+            "required": false,
+            "enum": ["asc", "desc"],
+            "default": "desc",
+            "description": "Thứ tự sắp xếp"
+          },
+          "min_price": {
+            "type": "number",
+            "required": false,
+            "min": 0,
+            "description": "Giá tối thiểu"
+          },
+          "max_price": {
+            "type": "number",
+            "required": false,
+            "min": 0,
+            "description": "Giá tối đa"
+          },
+          "room_type": {
+            "type": "string",
+            "required": false,
+            "description": "Loại phòng"
+          },
+          "location": {
+            "type": "string",
+            "required": false,
+            "description": "Địa điểm"
+          },
+          "amenities": {
+            "type": "string",
+            "required": false,
+            "description": "Tiện nghi (comma-separated)",
+            "example": "wifi,pool,breakfast"
+          },
+          "check_in_date": {
+            "type": "date",
+            "required": false,
+            "format": "YYYY-MM-DD",
+            "description": "Ngày check-in"
+          },
+          "check_out_date": {
+            "type": "date",
+            "required": false,
+            "format": "YYYY-MM-DD",
+            "description": "Ngày check-out"
+          },
+          "guests": {
+            "type": "integer",
+            "required": false,
+            "min": 1,
+            "max": 20,
+            "description": "Số khách"
+          },
+          "available_only": {
+            "type": "boolean",
+            "required": false,
+            "default": true,
+            "description": "Chỉ hiển thị phòng available"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Search completed successfully",
+            "data": {
+              "rooms": [
+                {
+                  "room_id": 1,
+                  "room_name": "Deluxe Sea View",
+                  "type_name": "Deluxe Room",
+                  "price_per_night": 2500000,
+                  "weekend_price": 3000000,
+                  "max_occupancy": 3,
+                  "size": 35.5,
+                  "view_type": "sea",
+                  "bed_type": "king",
+                  "amenities": ["WiFi miễn phí", "Điều hòa", "TV LCD"],
+                  "images": ["room1_1.jpg", "room1_2.jpg"],
+                  "average_rating": 4.8,
+                  "total_reviews": 156,
+                  "is_available": true,
+                  "distance_km": 0.5
+                }
+              ],
+              "pagination": {
+                "page": 1,
+                "limit": 12,
+                "total": 25,
+                "totalPages": 3,
+                "hasNext": true,
+                "hasPrev": false
+              },
+              "filters": {
+                "applied": {
+                  "min_price": 1000000,
+                  "max_price": 5000000,
+                  "room_type": "deluxe",
+                  "amenities": ["wifi", "pool"]
+                },
+                "available": {
+                  "room_types": ["standard", "deluxe", "suite"],
+                  "price_range": {
+                    "min": 500000,
+                    "max": 10000000
+                  },
+                  "amenities": ["WiFi miễn phí", "Điều hòa", "TV LCD", "Bể bơi"],
+                  "locations": ["Trung tâm", "Gần biển", "Khu vực yên tĩnh"]
+                }
+              },
+              "search": {
+                "query": "deluxe sea view",
+                "total_results": 25,
+                "search_time_ms": 156,
+                "log_id": 1234
+              },
+              "suggestions": [
+                {
+                  "suggestion": "deluxe ocean view",
+                  "frequency": 45
+                },
+                {
+                  "suggestion": "deluxe beach view",
+                  "frequency": 32
+                }
+              ]
+            }
+          }
+        }
+      },
+
+      "get_search_suggestions": {
+        "method": "GET",
+        "url": "/search/suggestions",
+        "description": "Lấy suggestions cho search query",
+        "query_parameters": {
+          "q": {
+            "type": "string",
+            "required": true,
+            "min_length": 1,
+            "max_length": 100,
+            "description": "Search query để lấy suggestions"
+          },
+          "limit": {
+            "type": "integer",
+            "required": false,
+            "default": 5,
+            "min": 1,
+            "max": 20,
+            "description": "Số lượng suggestions"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Search suggestions retrieved successfully",
+            "data": {
+              "query": "del",
+              "suggestions": [
+                {
+                  "suggestion": "deluxe room",
+                  "frequency": 156
+                },
+                {
+                  "suggestion": "deluxe sea view",
+                  "frequency": 89
+                },
+                {
+                  "suggestion": "deluxe suite",
+                  "frequency": 67
+                }
+              ]
+            }
+          }
+        }
+      },
+
+      "get_popular_searches": {
+        "method": "GET",
+        "url": "/search/popular",
+        "description": "Lấy các search phổ biến",
+        "query_parameters": {
+          "timeframe": {
+            "type": "string",
+            "required": false,
+            "enum": ["7d", "30d", "90d"],
+            "default": "30d",
+            "description": "Khoảng thời gian thống kê"
+          },
+          "limit": {
+            "type": "integer",
+            "required": false,
+            "default": 10,
+            "min": 1,
+            "max": 50,
+            "description": "Số lượng searches"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Popular searches retrieved successfully",
+            "data": {
+              "timeframe": "30d",
+              "searches": [
+                {
+                  "search_query": "deluxe sea view",
+                  "search_count": 234,
+                  "avg_results": 15.6,
+                  "avg_search_time": 145.2,
+                  "unique_users": 156,
+                  "clicks": 187,
+                  "click_through_rate": 79.9
+                },
+                {
+                  "search_query": "suite presidential",
+                  "search_count": 189,
+                  "avg_results": 3.2,
+                  "avg_search_time": 178.5,
+                  "unique_users": 134,
+                  "clicks": 145,
+                  "click_through_rate": 76.7
+                }
+              ]
+            }
+          }
+        }
+      },
+
+      "log_search_click": {
+        "method": "POST",
+        "url": "/search/click",
+        "description": "Log click vào search result để tracking analytics",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer {token} (optional)"
+        },
+        "request_body": {
+          "log_id": {
+            "type": "integer",
+            "required": true,
+            "description": "ID của search log từ kết quả search"
+          },
+          "result_id": {
+            "type": "integer",
+            "required": true,
+            "description": "ID của room được click"
+          },
+          "position": {
+            "type": "integer",
+            "required": true,
+            "description": "Vị trí của result trong danh sách"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Search click logged successfully"
+          }
+        }
+      },
+
+      "get_search_history": {
+        "method": "GET",
+        "url": "/search/history",
+        "description": "Lấy lịch sử search của user",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        },
+        "query_parameters": {
+          "limit": {
+            "type": "integer",
+            "required": false,
+            "default": 20,
+            "min": 1,
+            "max": 100,
+            "description": "Số lượng history items"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Search history retrieved successfully",
+            "data": {
+              "history": [
+                {
+                  "search_query": "deluxe sea view",
+                  "search_type": "rooms",
+                  "filters_applied": {
+                    "min_price": 2000000,
+                    "max_price": 5000000,
+                    "guests": 2
+                  },
+                  "results_count": 15,
+                  "clicked_result_id": 3,
+                  "created_at": "2025-01-15T10:30:00.000Z"
+                }
+              ],
+              "count": 25
+            }
+          }
+        }
+      },
+
+      "clear_search_history": {
+        "method": "DELETE",
+        "url": "/search/history",
+        "description": "Xóa lịch sử search của user",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Search history cleared successfully"
+          }
+        }
+      },
+
+      "get_search_analytics": {
+        "method": "GET",
+        "url": "/search/analytics",
+        "description": "Lấy analytics của search (cho user hoặc tổng thể)",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        },
+        "query_parameters": {
+          "timeframe": {
+            "type": "string",
+            "required": false,
+            "enum": ["7d", "30d", "90d"],
+            "default": "30d",
+            "description": "Khoảng thời gian"
+          },
+          "customer_id": {
+            "type": "integer",
+            "required": false,
+            "description": "ID customer (chỉ được xem của chính mình)"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Search analytics retrieved successfully",
+            "data": {
+              "timeframe": "30d",
+              "analytics": {
+                "overview": {
+                  "total_searches": 1234,
+                  "unique_searchers": 456,
+                  "avg_results_per_search": 12.5,
+                  "avg_search_time": 167.8,
+                  "total_clicks": 987,
+                  "overall_ctr": 79.9,
+                  "zero_result_searches": 23,
+                  "zero_result_rate": 1.9
+                },
+                "topSearches": [
+                  {
+                    "search_query": "deluxe sea view",
+                    "count": 234
+                  }
+                ],
+                "trends": [
+                  {
+                    "search_date": "2025-01-15",
+                    "search_count": 89,
+                    "unique_users": 45,
+                    "avg_results": 14.2
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "notification_apis": {
+      "get_notifications": {
+        "method": "GET",
+        "url": "/notifications",
+        "description": "Lấy danh sách notifications của user",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        },
+        "query_parameters": {
+          "page": {
+            "type": "integer",
+            "required": false,
+            "default": 1,
+            "min": 1,
+            "description": "Số trang"
+          },
+          "limit": {
+            "type": "integer",
+            "required": false,
+            "default": 20,
+            "min": 1,
+            "max": 100,
+            "description": "Số notifications per page"
+          },
+          "unread_only": {
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Chỉ lấy notifications chưa đọc"
+          },
+          "type": {
+            "type": "string",
+            "required": false,
+            "enum": ["booking", "payment", "system", "promotion", "reminder"],
+            "description": "Lọc theo loại notification"
+          },
+          "priority": {
+            "type": "string",
+            "required": false,
+            "enum": ["low", "normal", "high", "urgent"],
+            "description": "Lọc theo priority"
+          },
+          "include_expired": {
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Có bao gồm notifications đã hết hạn không"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Notifications retrieved successfully",
+            "data": {
+              "notifications": [
+                {
+                  "notification_id": 1,
+                  "customer_id": 123,
+                  "type": "booking",
+                  "title": "Đặt phòng được xác nhận",
+                  "message": "Đặt phòng BK20250115000001 đã được xác nhận. Check-in: 20/01/2025",
+                  "data": {
+                    "booking_id": 15,
+                    "booking_code": "BK20250115000001",
+                    "notification_type": "booking_confirmed"
+                  },
+                  "read_at": null,
+                  "priority": "high",
+                  "action_url": "/booking-history/15",
+                  "expires_at": null,
+                  "created_at": "2025-01-15T10:30:00.000Z",
+                  "updated_at": "2025-01-15T10:30:00.000Z",
+                  "is_read": false,
+                  "is_expired": false
+                }
+              ],
+              "pagination": {
+                "page": 1,
+                "limit": 20,
+                "total": 45,
+                "totalPages": 3,
+                "hasNext": true,
+                "hasPrev": false
+              }
+            }
+          }
+        }
+      },
+
+      "get_notification_by_id": {
+        "method": "GET",
+        "url": "/notifications/{id}",
+        "description": "Lấy chi tiết một notification",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        },
+        "path_parameters": {
+          "id": {
+            "type": "integer",
+            "required": true,
+            "description": "ID của notification"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Notification retrieved successfully",
+            "data": {
+              "notification": {
+                "notification_id": 1,
+                "customer_id": 123,
+                "type": "payment",
+                "title": "Thanh toán thành công",
+                "message": "Thanh toán cho đặt phòng BK20250115000001 đã hoàn tất.",
+                "data": {
+                  "booking_id": 15,
+                  "payment_id": 25,
+                  "amount": 2500000,
+                  "payment_method": "momo"
+                },
+                "read_at": null,
+                "priority": "high",
+                "action_url": "/booking-history/15",
+                "expires_at": "2025-02-15T00:00:00.000Z",
+                "created_at": "2025-01-15T12:00:00.000Z",
+                "updated_at": "2025-01-15T12:00:00.000Z",
+                "is_read": false,
+                "is_expired": false
+              }
+            }
+          }
+        }
+      },
+
+      "mark_as_read": {
+        "method": "PUT",
+        "url": "/notifications/{id}/mark-read",
+        "description": "Đánh dấu notification đã đọc",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        },
+        "path_parameters": {
+          "id": {
+            "type": "integer",
+            "required": true,
+            "description": "ID của notification"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Notification marked as read"
+          }
+        }
+      },
+
+      "mark_all_as_read": {
+        "method": "PUT",
+        "url": "/notifications/mark-all-read",
+        "description": "Đánh dấu tất cả notifications đã đọc",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        },
+        "query_parameters": {
+          "type": {
+            "type": "string",
+            "required": false,
+            "enum": ["booking", "payment", "system", "promotion", "reminder"],
+            "description": "Chỉ mark read cho loại này, nếu không có thì mark all"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Notifications marked as read",
+            "data": {
+              "marked_count": 15
+            }
+          }
+        }
+      },
+
+      "delete_notification": {
+        "method": "DELETE",
+        "url": "/notifications/{id}",
+        "description": "Xóa một notification",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        },
+        "path_parameters": {
+          "id": {
+            "type": "integer",
+            "required": true,
+            "description": "ID của notification"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Notification deleted successfully"
+          }
+        }
+      },
+
+      "delete_all_notifications": {
+        "method": "DELETE",
+        "url": "/notifications/clear-all",
+        "description": "Xóa tất cả notifications",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        },
+        "query_parameters": {
+          "type": {
+            "type": "string",
+            "required": false,
+            "enum": ["booking", "payment", "system", "promotion", "reminder"],
+            "description": "Chỉ xóa loại này, nếu không có thì xóa tất cả"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Notifications deleted successfully",
+            "data": {
+              "deleted_count": 25
+            }
+          }
+        }
+      },
+
+      "get_unread_count": {
+        "method": "GET",
+        "url": "/notifications/unread-count",
+        "description": "Lấy số notifications chưa đọc",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        },
+        "query_parameters": {
+          "type": {
+            "type": "string",
+            "required": false,
+            "enum": ["booking", "payment", "system", "promotion", "reminder"],
+            "description": "Đếm theo loại, nếu không có thì đếm tất cả"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Unread count retrieved successfully",
+            "data": {
+              "unread_count": 8
+            }
+          }
+        }
+      },
+
+      "get_notification_stats": {
+        "method": "GET",
+        "url": "/notifications/stats",
+        "description": "Lấy thống kê notifications của user",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Notification stats retrieved successfully",
+            "data": {
+              "total": 45,
+              "unread": 8,
+              "read": 37,
+              "by_type": {
+                "booking": {
+                  "unread": 3
+                },
+                "payment": {
+                  "unread": 2
+                },
+                "system": {
+                  "unread": 1
+                },
+                "promotion": {
+                  "unread": 2
+                },
+                "reminder": {
+                  "unread": 0
+                }
+              }
+            }
+          }
+        }
+      },
+
+      "bulk_actions": {
+        "method": "POST",
+        "url": "/notifications/bulk-actions",
+        "description": "Thực hiện actions hàng loạt trên nhiều notifications",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer {token}"
+        },
+        "request_body": {
+          "action": {
+            "type": "string",
+            "required": true,
+            "enum": ["mark_read", "delete"],
+            "description": "Action cần thực hiện"
+          },
+          "notification_ids": {
+            "type": "array",
+            "required": true,
+            "items": {
+              "type": "integer"
+            },
+            "min_items": 1,
+            "description": "Danh sách IDs của notifications",
+            "example": [1, 2, 3, 4, 5]
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Bulk mark_read completed successfully",
+            "data": {
+              "processed": 4,
+              "total": 5
+            }
+          }
+        }
+      },
+
+      "create_notification": {
+        "method": "POST",
+        "url": "/notifications",
+        "description": "Tạo notification mới (chủ yếu cho system/admin)",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer {token}"
+        },
+        "request_body": {
+          "type": {
+            "type": "string",
+            "required": true,
+            "enum": ["booking", "payment", "system", "promotion", "reminder"],
+            "description": "Loại notification"
+          },
+          "title": {
+            "type": "string",
+            "required": true,
+            "min_length": 1,
+            "max_length": 200,
+            "description": "Tiêu đề notification"
+          },
+          "message": {
+            "type": "string",
+            "required": true,
+            "min_length": 1,
+            "max_length": 500,
+            "description": "Nội dung notification"
+          },
+          "data": {
+            "type": "object",
+            "required": false,
+            "description": "Dữ liệu thêm (JSON object)"
+          },
+          "priority": {
+            "type": "string",
+            "required": false,
+            "enum": ["low", "normal", "high", "urgent"],
+            "default": "normal",
+            "description": "Mức độ ưu tiên"
+          },
+          "action_url": {
+            "type": "string",
+            "required": false,
+            "description": "URL để chuyển đến khi click"
+          },
+          "expires_at": {
+            "type": "string",
+            "required": false,
+            "format": "ISO8601",
+            "description": "Thời gian hết hạn"
+          }
+        },
+        "response_success": {
+          "status": 201,
+          "body": {
+            "success": true,
+            "message": "Notification created successfully",
+            "data": {
+              "notification": {
+                "notification_id": 50,
+                "customer_id": 123,
+                "type": "system",
+                "title": "Cập nhật hệ thống",
+                "message": "Hệ thống sẽ bảo trì từ 2h-4h sáng ngày 20/01",
+                "data": {
+                  "maintenance_start": "2025-01-20T02:00:00.000Z",
+                  "maintenance_end": "2025-01-20T04:00:00.000Z"
+                },
+                "read_at": null,
+                "priority": "normal",
+                "action_url": null,
+                "expires_at": "2025-01-21T00:00:00.000Z",
+                "created_at": "2025-01-15T15:30:00.000Z",
+                "updated_at": "2025-01-15T15:30:00.000Z",
+                "is_read": false,
+                "is_expired": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+
+  "frontend_implementation_guide": {
+    "required_services": {
+      "preferenceService.js": {
+        "methods": [
+          "getPreferences(options)",
+          "getPreference(key)",
+          "updatePreference(key, value, options)",
+          "bulkUpdatePreferences(preferences)",
+          "deletePreference(key)",
+          "resetPreferences(category)",
+          "exportPreferences(format)",
+          "importPreferences(data, overwrite)"
+        ],
+        "example_usage": {
+          "get_theme_preferences": "const prefs = await preferenceService.getPreferences({ category: 'theme' })",
+          "update_theme": "await preferenceService.updatePreference('theme.mode', 'dark')",
+          "bulk_update": "await preferenceService.bulkUpdatePreferences([{key: 'theme.mode', value: 'dark'}])"
+        }
+      },
+
+      "searchService.js": {
+        "methods": [
+          "searchRooms(params)",
+          "getSuggestions(query, limit)",
+          "getPopularSearches(timeframe, limit)",
+          "logClick(logId, resultId, position)",
+          "getSearchHistory(limit)",
+          "clearSearchHistory()",
+          "getSearchAnalytics(timeframe)",
+          "advancedSearch(criteria)"
+        ],
+        "example_usage": {
+          "basic_search": "const results = await searchService.searchRooms({ q: 'deluxe', limit: 12 })",
+          "get_suggestions": "const suggestions = await searchService.getSuggestions('del', 5)",
+          "log_click": "await searchService.logClick(123, 5, 1)"
+        }
+      },
+
+      "notificationService.js": {
+        "methods": [
+          "getNotifications(options)",
+          "getNotification(id)",
+          "markAsRead(id)",
+          "markAllAsRead(type)",
+          "deleteNotification(id)",
+          "deleteAllNotifications(type)",
+          "getUnreadCount(type)",
+          "getNotificationStats()",
+          "bulkActions(action, ids)"
+        ],
+        "example_usage": {
+          "get_notifications": "const notifications = await notificationService.getNotifications({ unread_only: true })",
+          "mark_read": "await notificationService.markAsRead(1)",
+          "bulk_delete": "await notificationService.bulkActions('delete', [1, 2, 3])"
+        }
+      }
+    },
+
+    "component_architecture": {
+      "theme_system": {
+        "components": ["ThemeProvider", "ThemeToggle", "ColorPicker"],
+        "hooks": ["useTheme", "useThemePreferences"],
+        "features": ["Dark/light mode", "Custom colors", "Font sizes", "Persistence"]
+      },
+
+      "notification_system": {
+        "components": ["NotificationCenter", "NotificationBell", "NotificationCard", "NotificationList"],
+        "hooks": ["useNotifications", "useUnreadCount"],
+        "features": ["Real-time updates", "Categorization", "Bulk actions", "Sound alerts"]
+      },
+
+      "search_system": {
+        "components": ["SearchBar", "SearchResults", "SearchFilters", "SearchSuggestions"],
+        "hooks": ["useSearch", "useSearchHistory"],
+        "features": ["Auto-complete", "Advanced filters", "Analytics", "History management"]
+      },
+
+      "ui_components": {
+        "basic": ["Button", "Input", "Card", "Modal"],
+        "advanced": ["DataTable", "VirtualList", "ImageGallery", "DatePicker"],
+        "loading": ["LoadingSpinner", "Skeleton", "ProgressBar"],
+        "feedback": ["Toast", "Alert", "Tooltip", "Badge"]
+      }
+    },
+
+    "performance_optimization": {
+      "lazy_loading": {
+        "components": ["LazySection", "LazyImage", "LazyRoute"],
+        "techniques": ["Intersection Observer", "Dynamic imports", "Code splitting"]
+      },
+
+      "virtualization": {
+        "components": ["VirtualList", "VirtualGrid", "InfiniteScroll"],
+        "use_cases": ["Large datasets", "Image galleries", "Search results"]
+      },
+
+      "caching": {
+        "strategies": ["React Query", "Service Worker", "Local Storage"],
+        "cache_times": {
+          "preferences": "5 minutes",
+          "notifications": "30 seconds",
+          "search_results": "2 minutes"
+        }
+      }
+    },
+
+    "state_management": {
+      "contexts": [
+        "ThemeContext - Theme state & preferences",
+        "NotificationContext - Notification state",
+        "SearchContext - Search state & history",
+        "PreferencesContext - User preferences"
+      ],
+
+      "react_query_keys": [
+        "user-preferences",
+        "notifications",
+        "notification-count",
+        "search-suggestions",
+        "popular-searches",
+        "search-history"
+      ]
+    }
+  },
+
+  "testing_scenarios": {
+    "preference_management": [
+      {
+        "name": "Update theme preference",
+        "endpoint": "PUT /preferences/theme.mode",
+        "payload": { "value": "dark", "type": "string", "category": "theme" },
+        "expected": "200 OK with updated preference"
+      },
+      {
+        "name": "Bulk update preferences",
+        "endpoint": "POST /preferences/bulk",
+        "payload": {
+          "preferences": [
+            { "key": "theme.mode", "value": "dark", "type": "string", "category": "theme" },
+            { "key": "notifications.email", "value": false, "type": "boolean", "category": "notifications" }
+          ]
+        },
+        "expected": "200 OK with updated count"
+      },
+      {
+        "name": "Export preferences",
+        "endpoint": "GET /preferences/export?format=json",
+        "expected": "200 OK with JSON file download"
+      }
+    ],
+
+    "search_functionality": [
+      {
+        "name": "Basic room search",
+        "endpoint": "GET /search/rooms?q=deluxe&limit=12",
+        "expected": "200 OK with rooms and analytics data"
+      },
+      {
+        "name": "Advanced search with filters",
+        "endpoint": "POST /search/advanced",
+        "payload": {
+          "search_criteria": {
+            "query": "sea view",
+            "filters": { "min_price": 2000000, "max_price": 5000000, "guests": 2 }
+          }
+        },
+        "expected": "200 OK with filtered results"
+      },
+      {
+        "name": "Get search suggestions",
+        "endpoint": "GET /search/suggestions?q=del&limit=5",
+        "expected": "200 OK with suggestion list"
+      },
+      {
+        "name": "Log search click",
+        "endpoint": "POST /search/click",
+        "payload": { "log_id": 123, "result_id": 5, "position": 1 },
+        "expected": "200 OK with success message"
+      }
+    ],
+
+    "notification_management": [
+      {
+        "name": "Get user notifications",
+        "endpoint": "GET /notifications?unread_only=true&limit=20",
+        "expected": "200 OK with notification list and pagination"
+      },
+      {
+        "name": "Mark notification as read",
+        "endpoint": "PUT /notifications/1/mark-read",
+        "expected": "200 OK with success message"
+      },
+      {
+        "name": "Bulk delete notifications",
+        "endpoint": "POST /notifications/bulk-actions",
+        "payload": { "action": "delete", "notification_ids": [1, 2, 3] },
+        "expected": "200 OK with processed count"
+      },
+      {
+        "name": "Get unread count",
+        "endpoint": "GET /notifications/unread-count",
+        "expected": "200 OK with unread count"
+      }
+    ]
+  },
+
+  "performance_considerations": {
+    "api_optimization": [
+      "Use pagination for large datasets",
+      "Implement proper caching headers",
+      "Optimize database queries with indexes",
+      "Use connection pooling",
+      "Implement rate limiting"
+    ],
+
+    "frontend_optimization": [
+      "Use React Query for caching",
+      "Implement virtual scrolling for large lists",
+      "Lazy load components and images",
+      "Optimize bundle size with code splitting",
+      "Use service workers for offline support"
+    ],
+
+    "monitoring": [
+      "Track API response times",
+      "Monitor error rates",
+      "Measure user engagement",
+      "Track search performance",
+      "Monitor notification delivery rates"
+    ]
+  }
+}
+
+

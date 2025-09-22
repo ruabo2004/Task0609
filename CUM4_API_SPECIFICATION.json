@@ -1,0 +1,1225 @@
+{
+  "cum4_payment_integration_apis": {
+    "base_url": "http://localhost:5000/api",
+    "authentication": "Bearer token required for most endpoints",
+    
+    "enhanced_payment_apis": {
+      "get_available_payment_methods": {
+        "method": "GET",
+        "url": "/payments/methods",
+        "description": "Lấy danh sách phương thức thanh toán có sẵn",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "authentication": "Not required",
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Available payment methods retrieved successfully",
+            "data": {
+              "payment_methods": [
+                {
+                  "id": "momo",
+                  "name": "MoMo E-Wallet",
+                  "type": "e_wallet",
+                  "description": "Thanh toán qua ví điện tử MoMo",
+                  "fees": {
+                    "percentage": 2.5,
+                    "fixed": 0
+                  },
+                  "supported_currencies": ["VND"],
+                  "min_amount": 10000,
+                  "max_amount": 50000000,
+                  "processing_time": "instant",
+                  "icon": "/icons/momo.png",
+                  "is_active": true
+                },
+                {
+                  "id": "bank_transfer",
+                  "name": "Chuyển khoản ngân hàng",
+                  "type": "bank_transfer",
+                  "description": "Chuyển khoản trực tiếp qua ngân hàng",
+                  "fees": {
+                    "percentage": 0,
+                    "fixed": 0
+                  },
+                  "supported_currencies": ["VND"],
+                  "min_amount": 10000,
+                  "max_amount": 1000000000,
+                  "processing_time": "1-3 business days",
+                  "icon": "/icons/bank.png",
+                  "is_active": true
+                },
+                {
+                  "id": "cash",
+                  "name": "Tiền mặt",
+                  "type": "cash",
+                  "description": "Thanh toán bằng tiền mặt tại chỗ",
+                  "fees": {
+                    "percentage": 0,
+                    "fixed": 0
+                  },
+                  "supported_currencies": ["VND"],
+                  "min_amount": 0,
+                  "max_amount": 50000000,
+                  "processing_time": "on_checkin",
+                  "icon": "/icons/cash.png",
+                  "is_active": true
+                }
+              ],
+              "count": 3
+            }
+          }
+        }
+      },
+
+      "calculate_payment_fees": {
+        "method": "POST",
+        "url": "/payments/calculate-fees",
+        "description": "Tính phí giao dịch cho phương thức thanh toán",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "authentication": "Not required",
+        "request_body": {
+          "payment_method": {
+            "type": "string",
+            "required": true,
+            "enum": ["momo", "vnpay", "bank_transfer", "cash", "paypal", "stripe"],
+            "description": "Phương thức thanh toán"
+          },
+          "amount": {
+            "type": "number",
+            "required": true,
+            "minimum": 0.01,
+            "description": "Số tiền giao dịch"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Payment fees calculated successfully",
+            "data": {
+              "fee_calculation": {
+                "amount": 1000000,
+                "percentage_fee": 25000,
+                "fixed_fee": 0,
+                "total_fee": 25000,
+                "net_amount": 975000,
+                "fee_rate": 2.5
+              },
+              "payment_method": "momo"
+            }
+          }
+        }
+      },
+
+      "create_payment": {
+        "method": "POST",
+        "url": "/payments/create",
+        "description": "Tạo giao dịch thanh toán mới",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer {token}"
+        },
+        "request_body": {
+          "booking_id": {
+            "type": "integer",
+            "required": true,
+            "minimum": 1,
+            "description": "ID của booking cần thanh toán"
+          },
+          "payment_method": {
+            "type": "string",
+            "required": true,
+            "enum": ["momo", "vnpay", "bank_transfer", "cash", "paypal", "stripe"],
+            "description": "Phương thức thanh toán"
+          },
+          "amount": {
+            "type": "number",
+            "required": true,
+            "minimum": 0.01,
+            "description": "Số tiền thanh toán"
+          },
+          "currency": {
+            "type": "string",
+            "required": false,
+            "enum": ["VND", "USD"],
+            "default": "VND",
+            "description": "Đơn vị tiền tệ"
+          },
+          "return_url": {
+            "type": "string",
+            "required": false,
+            "format": "url",
+            "description": "URL chuyển hướng khi thanh toán thành công"
+          },
+          "cancel_url": {
+            "type": "string",
+            "required": false,
+            "format": "url",
+            "description": "URL chuyển hướng khi hủy thanh toán"
+          }
+        },
+        "response_success": {
+          "status": 201,
+          "body": {
+            "success": true,
+            "message": "Payment created successfully",
+            "data": {
+              "payment": {
+                "payment_id": 123,
+                "booking_id": 45,
+                "amount": 1000000,
+                "payment_method": "momo",
+                "status": "pending",
+                "transaction_id": "PAY_1705123456_45",
+                "created_at": "2025-01-15T10:30:00.000Z"
+              },
+              "gateway_response": {
+                "success": true,
+                "payment_method": "momo",
+                "provider": "momo",
+                "payment_url": "https://test-payment.momo.vn/pay/store/PAY_1705123456_45",
+                "qr_code_url": "https://test-payment.momo.vn/qr/PAY_1705123456_45.png",
+                "deep_link": "momo://pay?token=xyz123",
+                "transaction_id": "momo_trans_456789",
+                "processing_fee": 25000
+              },
+              "next_action": {
+                "type": "redirect",
+                "url": "https://test-payment.momo.vn/pay/store/PAY_1705123456_45",
+                "qr_code": "https://test-payment.momo.vn/qr/PAY_1705123456_45.png"
+              }
+            }
+          }
+        }
+      },
+
+      "get_payment_status": {
+        "method": "GET",
+        "url": "/payments/{paymentId}",
+        "description": "Lấy trạng thái chi tiết của giao dịch thanh toán",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        },
+        "path_parameters": {
+          "paymentId": {
+            "type": "integer",
+            "required": true,
+            "description": "ID của giao dịch thanh toán"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Payment status retrieved successfully",
+            "data": {
+              "payment": {
+                "payment_id": 123,
+                "booking_id": 45,
+                "amount": 1000000,
+                "payment_method": "momo",
+                "payment_status": "paid",
+                "transaction_id": "PAY_1705123456_45",
+                "gateway_transaction_id": "momo_trans_456789",
+                "created_at": "2025-01-15T10:30:00.000Z",
+                "updated_at": "2025-01-15T10:35:00.000Z",
+                "gateway_display": {
+                  "name": "Ví MoMo",
+                  "icon": "💳",
+                  "color": "#d82d8b"
+                }
+              },
+              "transactions": [
+                {
+                  "transaction_id": 789,
+                  "payment_id": 123,
+                  "transaction_type": "payment",
+                  "payment_method": "momo",
+                  "provider": "momo",
+                  "amount": 1000000,
+                  "currency": "VND",
+                  "status": "completed",
+                  "processing_fee": 25000,
+                  "net_amount": 975000,
+                  "initiated_at": "2025-01-15T10:30:00.000Z",
+                  "completed_at": "2025-01-15T10:35:00.000Z",
+                  "is_successful": true
+                }
+              ],
+              "latest_transaction": {
+                "transaction_id": 789,
+                "status": "completed",
+                "completed_at": "2025-01-15T10:35:00.000Z"
+              }
+            }
+          }
+        }
+      },
+
+      "get_customer_payments": {
+        "method": "GET",
+        "url": "/payments/payments",
+        "description": "Lấy lịch sử thanh toán của khách hàng",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        },
+        "query_parameters": {
+          "page": {
+            "type": "integer",
+            "required": false,
+            "default": 1,
+            "minimum": 1,
+            "description": "Số trang"
+          },
+          "limit": {
+            "type": "integer",
+            "required": false,
+            "default": 20,
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Số lượng items per page"
+          },
+          "status": {
+            "type": "string",
+            "required": false,
+            "enum": ["pending", "paid", "failed", "refunded"],
+            "description": "Lọc theo trạng thái thanh toán"
+          },
+          "payment_method": {
+            "type": "string",
+            "required": false,
+            "enum": ["momo", "vnpay", "bank_transfer", "cash", "paypal", "stripe"],
+            "description": "Lọc theo phương thức thanh toán"
+          },
+          "date_from": {
+            "type": "string",
+            "required": false,
+            "format": "date",
+            "description": "Ngày bắt đầu (YYYY-MM-DD)"
+          },
+          "date_to": {
+            "type": "string",
+            "required": false,
+            "format": "date",
+            "description": "Ngày kết thúc (YYYY-MM-DD)"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Customer payments retrieved successfully",
+            "data": {
+              "payments": [
+                {
+                  "payment_id": 123,
+                  "booking_id": 45,
+                  "amount": 1000000,
+                  "payment_method": "momo",
+                  "payment_status": "paid",
+                  "transaction_id": "PAY_1705123456_45",
+                  "created_at": "2025-01-15T10:30:00.000Z",
+                  "gateway_display": {
+                    "name": "Ví MoMo",
+                    "icon": "💳",
+                    "color": "#d82d8b"
+                  }
+                }
+              ],
+              "pagination": {
+                "page": 1,
+                "limit": 20,
+                "total": 45,
+                "totalPages": 3,
+                "hasNext": true,
+                "hasPrev": false
+              }
+            }
+          }
+        }
+      },
+
+      "create_refund": {
+        "method": "POST",
+        "url": "/payments/{paymentId}/refund",
+        "description": "Tạo yêu cầu hoàn tiền cho giao dịch",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer {token}"
+        },
+        "path_parameters": {
+          "paymentId": {
+            "type": "integer",
+            "required": true,
+            "description": "ID của giao dịch cần hoàn tiền"
+          }
+        },
+        "request_body": {
+          "amount": {
+            "type": "number",
+            "required": true,
+            "minimum": 0.01,
+            "description": "Số tiền cần hoàn"
+          },
+          "reason": {
+            "type": "string",
+            "required": true,
+            "minLength": 10,
+            "maxLength": 500,
+            "description": "Lý do hoàn tiền"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Refund request created successfully",
+            "data": {
+              "refund_transaction": {
+                "transaction_id": 790,
+                "payment_id": 123,
+                "transaction_type": "refund",
+                "amount": -500000,
+                "status": "pending",
+                "created_at": "2025-01-15T11:00:00.000Z"
+              },
+              "refund_response": {
+                "success": false,
+                "refund_method": "manual",
+                "message": "MoMo refunds require manual processing. Customer service will contact you within 24 hours.",
+                "estimated_time": "1-3 business days",
+                "contact_info": {
+                  "phone": "1900-xxxx",
+                  "email": "support@homestay.com"
+                }
+              },
+              "estimated_completion": "1-3 business days"
+            }
+          }
+        }
+      },
+
+      "get_payment_analytics": {
+        "method": "GET",
+        "url": "/payments/analytics",
+        "description": "Lấy thống kê phân tích thanh toán của khách hàng",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        },
+        "query_parameters": {
+          "timeframe": {
+            "type": "string",
+            "required": false,
+            "enum": ["7d", "30d", "90d", "1y"],
+            "default": "30d",
+            "description": "Khoảng thời gian thống kê"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Payment analytics retrieved successfully",
+            "data": {
+              "timeframe": "30d",
+              "summary": {
+                "total_transactions": 25,
+                "successful_transactions": 23,
+                "success_rate": "92.00",
+                "total_amount": 25000000,
+                "total_fees": 625000,
+                "average_transaction": 1086956.52,
+                "favorite_payment_method": "momo"
+              },
+              "by_payment_method": [
+                {
+                  "payment_method": "momo",
+                  "provider": "momo",
+                  "transaction_count": 15,
+                  "total_amount": 15000000,
+                  "successful_count": 14,
+                  "success_rate": 93.33
+                },
+                {
+                  "payment_method": "bank_transfer",
+                  "provider": "manual",
+                  "transaction_count": 8,
+                  "total_amount": 8000000,
+                  "successful_count": 7,
+                  "success_rate": 87.50
+                }
+              ],
+              "daily_trends": [
+                {
+                  "transaction_date": "2025-01-15",
+                  "transaction_count": 3,
+                  "daily_amount": 3000000,
+                  "successful_count": 3
+                },
+                {
+                  "transaction_date": "2025-01-14",
+                  "transaction_count": 2,
+                  "daily_amount": 2000000,
+                  "successful_count": 2
+                }
+              ]
+            }
+          }
+        }
+      },
+
+      "handle_payment_webhook": {
+        "method": "POST",
+        "url": "/payments/webhook/{gateway}",
+        "description": "Xử lý webhook từ payment gateway (cho hệ thống)",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "authentication": "Gateway signature validation",
+        "path_parameters": {
+          "gateway": {
+            "type": "string",
+            "required": true,
+            "enum": ["momo", "vnpay", "paypal", "stripe"],
+            "description": "Tên gateway gửi webhook"
+          }
+        },
+        "request_body": {
+          "note": "Request body varies by gateway",
+          "momo_example": {
+            "orderId": "PAY_1705123456_45",
+            "requestId": "req_456789",
+            "amount": 1000000,
+            "resultCode": 0,
+            "message": "Success",
+            "transId": "momo_trans_456789",
+            "responseTime": 1705123456789,
+            "extraData": "",
+            "signature": "gateway_signature_hash"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Webhook processed successfully"
+          }
+        }
+      }
+    },
+
+    "saved_payment_methods_apis": {
+      "get_saved_methods": {
+        "method": "GET",
+        "url": "/payments/saved-methods",
+        "description": "Lấy danh sách phương thức thanh toán đã lưu của khách hàng",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Customer payment methods retrieved successfully",
+            "data": {
+              "payment_methods": [
+                {
+                  "method_id": 1,
+                  "customer_id": 123,
+                  "method_type": "momo",
+                  "provider": "momo",
+                  "account_info": {
+                    "phone": "09****5678",
+                    "account_name": "Nguyễn Văn A"
+                  },
+                  "is_default": true,
+                  "is_active": true,
+                  "last_used_at": "2025-01-15T10:30:00.000Z",
+                  "created_at": "2025-01-10T15:20:00.000Z"
+                },
+                {
+                  "method_id": 2,
+                  "customer_id": 123,
+                  "method_type": "bank_transfer",
+                  "provider": "vietcombank",
+                  "account_info": {
+                    "bank_code": "VCB",
+                    "account_number": "123****890",
+                    "account_name": "NGUYEN VAN A"
+                  },
+                  "is_default": false,
+                  "is_active": true,
+                  "last_used_at": "2025-01-12T09:15:00.000Z",
+                  "created_at": "2025-01-08T11:30:00.000Z"
+                }
+              ],
+              "count": 2
+            }
+          }
+        }
+      },
+
+      "add_payment_method": {
+        "method": "POST",
+        "url": "/payments/saved-methods",
+        "description": "Thêm phương thức thanh toán mới cho khách hàng",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer {token}"
+        },
+        "request_body": {
+          "method_type": {
+            "type": "string",
+            "required": true,
+            "enum": ["momo", "vnpay", "bank_transfer", "cash", "paypal", "stripe"],
+            "description": "Loại phương thức thanh toán"
+          },
+          "provider": {
+            "type": "string",
+            "required": true,
+            "minLength": 2,
+            "maxLength": 50,
+            "description": "Nhà cung cấp dịch vụ"
+          },
+          "account_info": {
+            "type": "object",
+            "required": true,
+            "description": "Thông tin tài khoản (varies by method_type)",
+            "properties": {
+              "momo_example": {
+                "phone": {
+                  "type": "string",
+                  "pattern": "^[0-9]{10,11}$",
+                  "description": "Số điện thoại MoMo"
+                }
+              },
+              "bank_transfer_example": {
+                "bank_code": {
+                  "type": "string",
+                  "description": "Mã ngân hàng"
+                },
+                "account_number": {
+                  "type": "string",
+                  "minLength": 6,
+                  "maxLength": 20,
+                  "description": "Số tài khoản"
+                },
+                "account_name": {
+                  "type": "string",
+                  "description": "Tên chủ tài khoản"
+                }
+              }
+            }
+          },
+          "is_default": {
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Đặt làm phương thức mặc định"
+          }
+        },
+        "response_success": {
+          "status": 201,
+          "body": {
+            "success": true,
+            "message": "Payment method added successfully",
+            "data": {
+              "payment_method": {
+                "method_id": 3,
+                "customer_id": 123,
+                "method_type": "momo",
+                "provider": "momo",
+                "account_info": {
+                  "phone": "09****1234",
+                  "account_name": "Nguyễn Văn B"
+                },
+                "is_default": false,
+                "is_active": true,
+                "last_used_at": null,
+                "created_at": "2025-01-15T12:00:00.000Z"
+              }
+            }
+          }
+        }
+      },
+
+      "set_default_payment_method": {
+        "method": "PUT",
+        "url": "/payments/saved-methods/{methodId}/default",
+        "description": "Đặt phương thức thanh toán làm mặc định",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        },
+        "path_parameters": {
+          "methodId": {
+            "type": "integer",
+            "required": true,
+            "description": "ID của phương thức thanh toán"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Default payment method updated successfully"
+          }
+        }
+      },
+
+      "delete_payment_method": {
+        "method": "DELETE",
+        "url": "/payments/saved-methods/{methodId}",
+        "description": "Xóa phương thức thanh toán đã lưu",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        },
+        "path_parameters": {
+          "methodId": {
+            "type": "integer",
+            "required": true,
+            "description": "ID của phương thức thanh toán"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Payment method deleted successfully"
+          }
+        }
+      }
+    },
+
+    "legacy_payment_apis": {
+      "create_momo_payment": {
+        "method": "POST",
+        "url": "/payment/momo/create",
+        "description": "Legacy endpoint - Tạo thanh toán MoMo (backward compatibility)",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer {token}"
+        },
+        "request_body": {
+          "booking_id": {
+            "type": "integer",
+            "required": true,
+            "minimum": 1,
+            "description": "ID của booking"
+          }
+        },
+        "response_success": {
+          "status": 201,
+          "body": {
+            "success": true,
+            "message": "MoMo payment created successfully",
+            "data": {
+              "payment_id": 123,
+              "momo_pay_url": "https://test-payment.momo.vn/pay/store/PAY_123",
+              "qr_code_url": "https://test-payment.momo.vn/qr/PAY_123.png",
+              "transaction_id": "PAY_123",
+              "amount": 1000000,
+              "expires_at": "2025-01-15T11:00:00.000Z"
+            }
+          }
+        }
+      },
+
+      "momo_ipn": {
+        "method": "POST",
+        "url": "/payment/momo/ipn",
+        "description": "Legacy endpoint - Xử lý IPN từ MoMo",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "authentication": "MoMo signature validation",
+        "request_body": {
+          "orderId": {
+            "type": "string",
+            "description": "Mã đơn hàng"
+          },
+          "requestId": {
+            "type": "string",
+            "description": "Mã yêu cầu"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Số tiền"
+          },
+          "resultCode": {
+            "type": "integer",
+            "description": "Mã kết quả (0 = thành công)"
+          },
+          "message": {
+            "type": "string",
+            "description": "Thông báo kết quả"
+          },
+          "signature": {
+            "type": "string",
+            "description": "Chữ ký xác thực"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "IPN processed successfully"
+          }
+        }
+      },
+
+      "query_momo_payment": {
+        "method": "GET",
+        "url": "/payment/{id}/momo/query",
+        "description": "Legacy endpoint - Truy vấn trạng thái thanh toán MoMo",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        },
+        "path_parameters": {
+          "id": {
+            "type": "integer",
+            "required": true,
+            "description": "ID của payment"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "MoMo payment status retrieved successfully",
+            "data": {
+              "payment_id": 123,
+              "status": "paid",
+              "momo_transaction_id": "momo_trans_456789",
+              "amount": 1000000,
+              "paid_at": "2025-01-15T10:35:00.000Z"
+            }
+          }
+        }
+      },
+
+      "get_payment_legacy": {
+        "method": "GET",
+        "url": "/payment/{id}",
+        "description": "Legacy endpoint - Lấy thông tin thanh toán",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        },
+        "path_parameters": {
+          "id": {
+            "type": "integer",
+            "required": true,
+            "description": "ID của payment"
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Payment retrieved successfully",
+            "data": {
+              "payment": {
+                "payment_id": 123,
+                "booking_id": 45,
+                "amount": 1000000,
+                "payment_method": "momo",
+                "payment_status": "paid",
+                "created_at": "2025-01-15T10:30:00.000Z"
+              }
+            }
+          }
+        }
+      },
+
+      "get_customer_payments_legacy": {
+        "method": "GET",
+        "url": "/payment/customer",
+        "description": "Legacy endpoint - Lấy lịch sử thanh toán khách hàng",
+        "headers": {
+          "Authorization": "Bearer {token}"
+        },
+        "query_parameters": {
+          "page": {
+            "type": "integer",
+            "required": false,
+            "default": 1
+          },
+          "limit": {
+            "type": "integer",
+            "required": false,
+            "default": 20
+          }
+        },
+        "response_success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "message": "Customer payments retrieved successfully",
+            "data": {
+              "payments": [
+                {
+                  "payment_id": 123,
+                  "booking_id": 45,
+                  "amount": 1000000,
+                  "payment_method": "momo",
+                  "payment_status": "paid",
+                  "created_at": "2025-01-15T10:30:00.000Z"
+                }
+              ],
+              "pagination": {
+                "page": 1,
+                "limit": 20,
+                "total": 5,
+                "totalPages": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+
+  "payment_security_features": {
+    "fraud_detection": {
+      "amount_limits": {
+        "max_transaction_amount": 20000000,
+        "max_daily_amount": 50000000,
+        "max_daily_transactions": 10
+      },
+      "velocity_checks": {
+        "max_payments_per_hour": 3,
+        "duplicate_payment_window": 300,
+        "failed_attempts_limit": 5
+      },
+      "risk_scoring": {
+        "low_risk": "0-30 points",
+        "medium_risk": "31-60 points",
+        "high_risk": "61-100 points (blocked)"
+      },
+      "suspicious_activity_detection": {
+        "shared_ip_threshold": 5,
+        "off_hours_payments_threshold": 3,
+        "device_fingerprinting": true
+      }
+    },
+
+    "security_validation_example": {
+      "request": {
+        "customer_id": 123,
+        "amount": 1000000,
+        "payment_method": "momo",
+        "booking_id": 45,
+        "ip_address": "192.168.1.1",
+        "user_agent": "Mozilla/5.0..."
+      },
+      "response": {
+        "is_approved": true,
+        "risk_score": 25,
+        "risk_level": "low",
+        "checks": {
+          "amount_limit": {
+            "passed": true,
+            "details": {
+              "amount": 1000000,
+              "limit": 20000000
+            }
+          },
+          "daily_limit": {
+            "passed": true,
+            "details": {
+              "current_daily_amount": 500000,
+              "new_daily_amount": 1500000,
+              "daily_amount_limit": 50000000
+            }
+          },
+          "velocity_check": {
+            "passed": true,
+            "details": {
+              "recent_payments": 1,
+              "velocity_limit": 3
+            }
+          }
+        },
+        "recommendations": []
+      }
+    }
+  },
+
+  "payment_gateway_integrations": {
+    "momo_integration": {
+      "status": "active",
+      "features": ["web_redirect", "qr_code", "deep_link"],
+      "sandbox_url": "https://test-payment.momo.vn",
+      "production_url": "https://payment.momo.vn",
+      "supported_currencies": ["VND"],
+      "fee_structure": {
+        "percentage": 2.5,
+        "fixed": 0
+      }
+    },
+
+    "vnpay_integration": {
+      "status": "ready_for_implementation",
+      "features": ["atm_card", "credit_card", "qr_code"],
+      "sandbox_url": "https://sandbox.vnpayment.vn",
+      "production_url": "https://vnpayment.vn",
+      "supported_currencies": ["VND"],
+      "fee_structure": {
+        "percentage": 1.8,
+        "fixed": 0
+      }
+    },
+
+    "bank_transfer_integration": {
+      "status": "active",
+      "features": ["manual_verification", "qr_code"],
+      "processing_time": "1-3 business days",
+      "fee_structure": {
+        "percentage": 0,
+        "fixed": 0
+      }
+    },
+
+    "cash_payment": {
+      "status": "active",
+      "features": ["on_site_payment"],
+      "processing_time": "on_checkin",
+      "fee_structure": {
+        "percentage": 0,
+        "fixed": 0
+      }
+    }
+  },
+
+  "frontend_implementation_guide": {
+    "required_services": {
+      "paymentService.js": {
+        "methods": [
+          "getAvailablePaymentMethods()",
+          "calculateFees(method, amount)",
+          "createPayment(paymentData)",
+          "getPaymentStatus(paymentId)",
+          "getPayments(filters)",
+          "createRefund(paymentId, refundData)",
+          "getAnalytics(timeframe)"
+        ],
+        "example_usage": {
+          "create_payment": "const payment = await paymentService.createPayment({ booking_id: 1, payment_method: 'momo', amount: 1000000 })",
+          "get_analytics": "const analytics = await paymentService.getAnalytics('30d')"
+        }
+      },
+
+      "gatewayService.js": {
+        "methods": [
+          "createMoMoPayment(paymentData)",
+          "createBankTransfer(paymentData)",
+          "createCashPayment(paymentData)",
+          "handlePaymentCallback(gateway, callbackData)",
+          "validatePaymentSignature(payload, signature)"
+        ],
+        "example_usage": {
+          "momo_payment": "const result = await gatewayService.createMoMoPayment({ orderId: 'PAY_123', amount: 1000000 })"
+        }
+      },
+
+      "securityService.js": {
+        "methods": [
+          "validatePaymentSecurity(paymentData)",
+          "calculateRiskScore(securityChecks)",
+          "getSecurityReport(customerId, timeframe)",
+          "encryptSensitiveData(data)",
+          "validateDeviceFingerprint(userAgent, ipAddress)"
+        ],
+        "example_usage": {
+          "security_check": "const security = await securityService.validatePaymentSecurity({ amount: 1000000, payment_method: 'momo' })"
+        }
+      }
+    },
+
+    "component_architecture": {
+      "payment_flow": {
+        "components": ["PaymentMethods", "PaymentForm", "PaymentSummary", "PaymentStatus"],
+        "hooks": ["usePayment", "usePaymentSecurity"],
+        "features": ["Multi-gateway support", "Real-time validation", "Security checks"]
+      },
+
+      "payment_management": {
+        "components": ["PaymentHistory", "PaymentAnalytics", "RefundRequest", "SavedMethods"],
+        "hooks": ["usePaymentHistory", "useRefund", "usePaymentMethods"],
+        "features": ["Transaction tracking", "Analytics dashboard", "Refund management"]
+      },
+
+      "security_features": {
+        "components": ["PaymentSecurityBadge", "RiskAssessment", "FraudAlert"],
+        "hooks": ["usePaymentSecurity", "useRiskAssessment"],
+        "features": ["Risk scoring", "Fraud detection", "Security monitoring"]
+      }
+    },
+
+    "state_management": {
+      "contexts": [
+        "PaymentContext - Payment state & operations",
+        "PaymentSecurityContext - Security validation state"
+      ],
+      "react_query_keys": [
+        "payment-methods",
+        "payment-history",
+        "payment-analytics",
+        "saved-payment-methods",
+        "payment-security"
+      ]
+    }
+  },
+
+  "testing_scenarios": {
+    "payment_creation": [
+      {
+        "name": "Create MoMo payment",
+        "endpoint": "POST /payments/create",
+        "payload": {
+          "booking_id": 1,
+          "payment_method": "momo",
+          "amount": 1000000,
+          "return_url": "https://example.com/success"
+        },
+        "expected": "201 Created with payment details and gateway URL"
+      },
+      {
+        "name": "Create bank transfer payment",
+        "endpoint": "POST /payments/create",
+        "payload": {
+          "booking_id": 2,
+          "payment_method": "bank_transfer",
+          "amount": 2000000
+        },
+        "expected": "201 Created with bank transfer information"
+      }
+    ],
+
+    "security_validation": [
+      {
+        "name": "High amount transaction",
+        "scenario": "Amount exceeds daily limit",
+        "expected": "Payment blocked with high risk score"
+      },
+      {
+        "name": "Multiple rapid payments",
+        "scenario": "3+ payments within 1 hour",
+        "expected": "Velocity check fails, payment blocked"
+      },
+      {
+        "name": "Duplicate payment detection",
+        "scenario": "Same amount, booking within 5 minutes",
+        "expected": "Duplicate check fails, payment blocked"
+      }
+    ],
+
+    "refund_management": [
+      {
+        "name": "Create refund request",
+        "endpoint": "POST /payments/123/refund",
+        "payload": {
+          "amount": 500000,
+          "reason": "Khách hàng yêu cầu hủy booking do lý do cá nhân"
+        },
+        "expected": "200 OK with refund transaction details"
+      }
+    ],
+
+    "analytics_reporting": [
+      {
+        "name": "Get payment analytics",
+        "endpoint": "GET /payments/analytics?timeframe=30d",
+        "expected": "200 OK with comprehensive analytics data"
+      }
+    ]
+  },
+
+  "error_handling": {
+    "common_errors": {
+      "400": {
+        "description": "Bad Request - Invalid payment data",
+        "example": {
+          "success": false,
+          "message": "Validation errors",
+          "errors": [
+            {
+              "field": "amount",
+              "message": "Amount must be a positive number"
+            }
+          ]
+        }
+      },
+      "401": {
+        "description": "Unauthorized - Invalid or missing token",
+        "example": {
+          "success": false,
+          "message": "Access token is required"
+        }
+      },
+      "403": {
+        "description": "Forbidden - Security check failed",
+        "example": {
+          "success": false,
+          "message": "Payment blocked due to high risk score",
+          "details": {
+            "risk_score": 85,
+            "risk_level": "high"
+          }
+        }
+      },
+      "404": {
+        "description": "Not Found - Payment or booking not found",
+        "example": {
+          "success": false,
+          "message": "Payment not found"
+        }
+      },
+      "422": {
+        "description": "Unprocessable Entity - Business logic error",
+        "example": {
+          "success": false,
+          "message": "Payment amount exceeds remaining balance",
+          "details": {
+            "total_amount": 1000000,
+            "already_paid": 600000,
+            "remaining": 400000,
+            "requested": 500000
+          }
+        }
+      },
+      "500": {
+        "description": "Internal Server Error - System error",
+        "example": {
+          "success": false,
+          "message": "Failed to process payment",
+          "error": "Gateway communication failed"
+        }
+      }
+    }
+  },
+
+  "performance_optimization": {
+    "api_caching": [
+      "Payment methods cached for 1 hour",
+      "Payment analytics cached for 5 minutes",
+      "Security validation results cached for 30 seconds"
+    ],
+    "database_optimization": [
+      "Indexed payment_transactions on customer_id, created_at",
+      "Indexed payment_methods on customer_id, is_default",
+      "Partitioned security_logs by date"
+    ],
+    "security_optimization": [
+      "Rate limiting: 100 requests per 15 minutes",
+      "Security checks run in parallel",
+      "Fraud detection rules optimized for performance"
+    ]
+  }
+}
+
+

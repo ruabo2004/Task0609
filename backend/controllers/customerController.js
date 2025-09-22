@@ -1,6 +1,6 @@
-const Customer = require('../models/Customer');
-const { generateToken } = require('../middleware/auth');
-const { validationResult } = require('express-validator');
+const Customer = require("../models/Customer");
+const { generateToken } = require("../middleware/authEnhanced");
+const { validationResult } = require("express-validator");
 
 const register = async (req, res) => {
   try {
@@ -8,18 +8,19 @@ const register = async (req, res) => {
     if (!errors.isEmpty()) {
       return res.status(400).json({
         success: false,
-        message: 'Validation errors',
-        errors: errors.array()
+        message: "Validation errors",
+        errors: errors.array(),
       });
     }
 
-    const { full_name, email, password, phone, address, date_of_birth } = req.body;
+    const { full_name, email, password, phone, address, date_of_birth } =
+      req.body;
 
     const existingCustomer = await Customer.findByEmail(email);
     if (existingCustomer) {
       return res.status(409).json({
         success: false,
-        message: 'Email already registered'
+        message: "Email already registered",
       });
     }
 
@@ -29,24 +30,24 @@ const register = async (req, res) => {
       password,
       phone,
       address,
-      date_of_birth
+      date_of_birth,
     });
 
     const token = generateToken(customer);
 
     res.status(201).json({
       success: true,
-      message: 'Customer registered successfully',
+      message: "Customer registered successfully",
       data: {
         customer: customer.toJSON(),
-        token
-      }
+        token,
+      },
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Registration failed',
-      error: error.message
+      message: "Registration failed",
+      error: error.message,
     });
   }
 };
@@ -57,8 +58,8 @@ const login = async (req, res) => {
     if (!errors.isEmpty()) {
       return res.status(400).json({
         success: false,
-        message: 'Validation errors',
-        errors: errors.array()
+        message: "Validation errors",
+        errors: errors.array(),
       });
     }
 
@@ -68,15 +69,18 @@ const login = async (req, res) => {
     if (!customer) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid email or password'
+        message: "Invalid email or password",
       });
     }
 
-    const isValidPassword = await Customer.verifyPassword(password, customer.password_hash);
+    const isValidPassword = await Customer.verifyPassword(
+      password,
+      customer.password_hash
+    );
     if (!isValidPassword) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid email or password'
+        message: "Invalid email or password",
       });
     }
 
@@ -84,17 +88,17 @@ const login = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Login successful',
+      message: "Login successful",
       data: {
         customer: customer.toJSON(),
-        token
-      }
+        token,
+      },
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Login failed',
-      error: error.message
+      message: "Login failed",
+      error: error.message,
     });
   }
 };
@@ -103,16 +107,16 @@ const getProfile = async (req, res) => {
   try {
     res.json({
       success: true,
-      message: 'Profile retrieved successfully',
+      message: "Profile retrieved successfully",
       data: {
-        customer: req.customer.toJSON()
-      }
+        customer: req.customer.toJSON(),
+      },
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Failed to get profile',
-      error: error.message
+      message: "Failed to get profile",
+      error: error.message,
     });
   }
 };
@@ -123,8 +127,8 @@ const updateProfile = async (req, res) => {
     if (!errors.isEmpty()) {
       return res.status(400).json({
         success: false,
-        message: 'Validation errors',
-        errors: errors.array()
+        message: "Validation errors",
+        errors: errors.array(),
       });
     }
 
@@ -134,21 +138,21 @@ const updateProfile = async (req, res) => {
       full_name,
       phone,
       address,
-      date_of_birth
+      date_of_birth,
     });
 
     res.json({
       success: true,
-      message: 'Profile updated successfully',
+      message: "Profile updated successfully",
       data: {
-        customer: updatedCustomer.toJSON()
-      }
+        customer: updatedCustomer.toJSON(),
+      },
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Failed to update profile',
-      error: error.message
+      message: "Failed to update profile",
+      error: error.message,
     });
   }
 };
@@ -159,8 +163,8 @@ const changePassword = async (req, res) => {
     if (!errors.isEmpty()) {
       return res.status(400).json({
         success: false,
-        message: 'Validation errors',
-        errors: errors.array()
+        message: "Validation errors",
+        errors: errors.array(),
       });
     }
 
@@ -170,20 +174,20 @@ const changePassword = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Password changed successfully'
+      message: "Password changed successfully",
     });
   } catch (error) {
-    if (error.message.includes('Current password is incorrect')) {
+    if (error.message.includes("Current password is incorrect")) {
       return res.status(400).json({
         success: false,
-        message: error.message
+        message: error.message,
       });
     }
 
     res.status(500).json({
       success: false,
-      message: 'Failed to change password',
-      error: error.message
+      message: "Failed to change password",
+      error: error.message,
     });
   }
 };
@@ -194,16 +198,16 @@ const getBookingHistory = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Booking history retrieved successfully',
+      message: "Booking history retrieved successfully",
       data: {
-        bookings
-      }
+        bookings,
+      },
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Failed to get booking history',
-      error: error.message
+      message: "Failed to get booking history",
+      error: error.message,
     });
   }
 };
@@ -214,16 +218,16 @@ const getReviews = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Reviews retrieved successfully',
+      message: "Reviews retrieved successfully",
       data: {
-        reviews
-      }
+        reviews,
+      },
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Failed to get reviews',
-      error: error.message
+      message: "Failed to get reviews",
+      error: error.message,
     });
   }
 };
@@ -234,13 +238,13 @@ const deactivateAccount = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Account deactivated successfully'
+      message: "Account deactivated successfully",
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Failed to deactivate account',
-      error: error.message
+      message: "Failed to deactivate account",
+      error: error.message,
     });
   }
 };
@@ -253,5 +257,5 @@ module.exports = {
   changePassword,
   getBookingHistory,
   getReviews,
-  deactivateAccount
+  deactivateAccount,
 };

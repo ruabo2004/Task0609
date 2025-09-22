@@ -1,16 +1,22 @@
-import axios from 'axios';
+import axios from "axios";
+import config from "@config/config";
+import { getStorageItem, removeStorageItem } from "@utils/storage";
+import { STORAGE_KEYS, ERROR_MESSAGES } from "@utils/constants";
+import { extractErrorMessage } from "@utils/helpers";
 
+// Create axios instance
 const api = axios.create({
-  baseURL: '/api',
-  timeout: 10000,
+  baseURL: config.api.baseUrl,
+  timeout: config.api.timeout,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
+// Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('authToken');
+    const token = getStorageItem(STORAGE_KEYS.AUTH_TOKEN);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -21,76 +27,110 @@ api.interceptors.request.use(
   }
 );
 
+// Response interceptor to handle errors globally
 api.interceptors.response.use(
   (response) => {
     return response;
   },
   (error) => {
-    if (error.response?.status === 401) {
-      
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('currentUser');
-      window.location.href = '/login';
+    // Handle different error scenarios
+    if (error.response) {
+      const { status } = error.response;
+
+      switch (status) {
+        case 401:
+          // Token expired or invalid - redirect to login
+          removeStorageItem(STORAGE_KEYS.AUTH_TOKEN);
+          removeStorageItem(STORAGE_KEYS.USER_DATA);
+          window.location.href = "/login";
+          break;
+
+        case 403:
+          // Forbidden - user doesn't have permission
+          error.message = ERROR_MESSAGES.UNAUTHORIZED;
+          break;
+
+        case 404:
+          // Not found
+          error.message = "Tài nguyên không tồn tại";
+          break;
+
+        case 422:
+          // Validation error
+          error.message = extractErrorMessage(error);
+          break;
+
+        case 500:
+          // Server error
+          error.message = ERROR_MESSAGES.SERVER_ERROR;
+          break;
+
+        default:
+          error.message = extractErrorMessage(error);
+      }
+    } else if (error.request) {
+      // Network error
+      error.message = ERROR_MESSAGES.NETWORK_ERROR;
+    } else {
+      // Other error
+      error.message = error.message || "Đã xảy ra lỗi không xác định";
     }
+
     return Promise.reject(error);
   }
 );
 
-export const customerAPI = {
-  
-  register: (userData) => api.post('/customers/register', userData),
-  login: (credentials) => api.post('/customers/login', credentials),
+// API helper functions
+export const apiHelpers = {
+  /**
+   * GET request
+   * @param {string} url
+   * @param {object} config
+   * @returns {Promise}
+   */
+  get: (url, config = {}) => api.get(url, config),
 
-  getProfile: () => api.get('/customers/profile'),
-  updateProfile: (profileData) => api.put('/customers/profile', profileData),
-  changePassword: (passwordData) => api.put('/customers/change-password', passwordData),
+  /**
+   * POST request
+   * @param {string} url
+   * @param {object} data
+   * @param {object} config
+   * @returns {Promise}
+   */
+  post: (url, data = {}, config = {}) => api.post(url, data, config),
 
-  getBookingHistory: () => api.get('/customers/booking-history'),
-  getReviews: () => api.get('/customers/reviews'),
+  /**
+   * PUT request
+   * @param {string} url
+   * @param {object} data
+   * @param {object} config
+   * @returns {Promise}
+   */
+  put: (url, data = {}, config = {}) => api.put(url, data, config),
 
-  deactivateAccount: () => api.delete('/customers/deactivate'),
-};
+  /**
+   * DELETE request
+   * @param {string} url
+   * @param {object} config
+   * @returns {Promise}
+   */
+  delete: (url, config = {}) => api.delete(url, config),
 
-export const roomAPI = {
-  
-  getAllRooms: () => api.get('/rooms'),
-  getRoomById: (roomId) => api.get(`/rooms/${roomId}`),
-  getRoomTypes: () => api.get('/rooms/types'),
-  getRoomsByType: (roomTypeId) => api.get(`/rooms/type/${roomTypeId}`),
-
-  getAvailableRooms: (checkInDate, checkOutDate) => 
-    api.get('/rooms/available', {
-      params: { checkInDate, checkOutDate }
-    }),
-  searchRooms: (filters) => 
-    api.get('/rooms/search', { params: filters }),
-  checkAvailability: (roomId, checkInDate, checkOutDate) =>
-    api.get(`/rooms/${roomId}/availability`, {
-      params: { checkInDate, checkOutDate }
-    }),
-};
-
-export const bookingAPI = {
-  
-  createBooking: (bookingData) => api.post('/bookings', bookingData),
-  getBookingById: (bookingId) => api.get(`/bookings/${bookingId}`),
-  getCustomerBookings: (params = ) => api.get('/bookings', { params }),
-  cancelBooking: (bookingId) => api.put(`/bookings/${bookingId}/cancel`),
-
-  calculateBookingCost: (bookingData) => api.post('/bookings/calculate-cost', bookingData),
-};
-
-export const paymentAPI = {
-  
-  createMoMoPayment: (bookingData) => api.post('/payment/momo/create', bookingData),
-  getPaymentStatus: (paymentId) => api.get(`/payment/${paymentId}`),
-  getCustomerPayments: (params = ) => api.get('/payment/customer', { params }),
-  queryMoMoPaymentStatus: (paymentId) => api.get(`/payment/${paymentId}/momo/query`),
-};
-
-export const servicesAPI = {
-  getAllServices: () => api.get('/services'),
-  getServicesByType: (type) => api.get(`/services/type/${type}`),
+  /**
+   * Upload file
+   * @param {string} url
+   * @param {FormData} formData
+   * @param {Function} onUploadProgress
+   * @returns {Promise}
+   */
+  upload: (url, formData, onUploadProgress = null) => {
+    return api.post(url, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+      onUploadProgress,
+    });
+  },
 };
 
 export default api;

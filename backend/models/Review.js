@@ -1,687 +1,533 @@
-const { pool } = require("../config/database");
+// Review Model
+// Will be implemented in Week 4
+
+const { executeQuery } = require("../config/database");
 
 class Review {
-  constructor(data) {
-    this.review_id = data.review_id;
-    this.booking_id = data.booking_id;
-    this.customer_id = data.customer_id;
-    this.room_id = data.room_id;
-    this.rating = data.rating;
-    this.cleanliness_rating = data.cleanliness_rating;
-    this.service_rating = data.service_rating;
-    this.location_rating = data.location_rating;
-    this.value_rating = data.value_rating;
-    this.amenities_rating = data.amenities_rating;
-    this.title = data.title;
-    this.comment = data.comment;
-    this.pros = data.pros;
-    this.cons = data.cons;
-    this.images = data.images;
-    this.helpful_count = data.helpful_count;
-    this.verified_stay = data.verified_stay;
-    this.review_status = data.review_status;
-    this.admin_response = data.admin_response;
-    this.admin_response_date = data.admin_response_date;
-    this.created_at = data.created_at;
-    this.updated_at = data.updated_at;
-
-    // Additional fields from joins
-    this.customer_name = data.customer_name;
-    this.room_number = data.room_number;
-    this.room_name = data.room_name;
-    this.booking_code = data.booking_code;
+  constructor(reviewData) {
+    this.id = reviewData.id;
+    this.booking_id = reviewData.booking_id;
+    this.user_id = reviewData.user_id;
+    this.rating = reviewData.rating;
+    this.comment = reviewData.comment;
+    this.created_at = reviewData.created_at;
+    this.updated_at = reviewData.updated_at;
   }
 
-  /**
-   * Create a new review
-   */
-  static async create(reviewData) {
-    const {
-      booking_id,
-      customer_id,
-      room_id,
-      rating,
-      cleanliness_rating,
-      service_rating,
-      location_rating,
-      value_rating,
-      amenities_rating,
-      title,
-      comment,
-      pros,
-      cons,
-      images,
-    } = reviewData;
+  // Static methods for database operations
 
+  // @desc    Get all reviews with pagination and filters
+  static async getAll(filters = {}, page = 1, limit = 10) {
     try {
-      const [result] = await pool.execute(
-        `INSERT INTO reviews 
-         (booking_id, customer_id, room_id, rating, cleanliness_rating, service_rating,
-          location_rating, value_rating, amenities_rating, title, comment, pros, cons, images)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          booking_id,
-          customer_id,
-          room_id,
-          rating,
-          cleanliness_rating,
-          service_rating,
-          location_rating,
-          value_rating,
-          amenities_rating,
-          title,
-          comment,
-          pros,
-          cons,
-          JSON.stringify(images || []),
-        ]
-      );
-
-      return await this.findById(result.insertId);
-    } catch (error) {
-      throw new Error(`Error creating review: ${error.message}`);
-    }
-  }
-
-  /**
-   * Find review by ID
-   */
-  static async findById(review_id) {
-    try {
-      const [rows] = await pool.execute(
-        "SELECT * FROM reviews WHERE review_id = ?",
-        [review_id]
-      );
-
-      if (rows.length === 0) return null;
-
-      const reviewData = rows[0];
-      if (reviewData.images) {
-        reviewData.images = JSON.parse(reviewData.images);
-      }
-
-      return new Review(reviewData);
-    } catch (error) {
-      throw new Error(`Error finding review: ${error.message}`);
-    }
-  }
-
-  /**
-   * Find review by ID with customer and room details
-   */
-  static async findByIdWithDetails(review_id) {
-    try {
-      const [rows] = await pool.execute(
-        `SELECT r.*, c.full_name as customer_name, rm.room_number, rm.room_name, b.booking_code
-         FROM reviews r
-         JOIN customers c ON r.customer_id = c.customer_id
-         JOIN rooms rm ON r.room_id = rm.room_id
-         JOIN bookings b ON r.booking_id = b.booking_id
-         WHERE r.review_id = ?`,
-        [review_id]
-      );
-
-      if (rows.length === 0) return null;
-
-      const reviewData = rows[0];
-      if (reviewData.images) {
-        reviewData.images = JSON.parse(reviewData.images);
-      }
-
-      return new Review(reviewData);
-    } catch (error) {
-      throw new Error(`Error finding review with details: ${error.message}`);
-    }
-  }
-
-  /**
-   * Find review by booking ID
-   */
-  static async findByBookingId(booking_id) {
-    try {
-      const [rows] = await pool.execute(
-        "SELECT * FROM reviews WHERE booking_id = ?",
-        [booking_id]
-      );
-
-      if (rows.length === 0) return null;
-
-      const reviewData = rows[0];
-      if (reviewData.images) {
-        reviewData.images = JSON.parse(reviewData.images);
-      }
-
-      return new Review(reviewData);
-    } catch (error) {
-      throw new Error(`Error finding review by booking: ${error.message}`);
-    }
-  }
-
-  /**
-   * Get reviews by room ID with pagination and filters
-   */
-  static async getByRoomId(filters = {}) {
-    try {
-      const {
-        room_id,
-        status = "approved",
-        min_rating,
-        page = 1,
-        limit = 10,
-        sortBy = "created_at",
-        sortOrder = "desc",
-      } = filters;
-
-      let query = `
-        SELECT r.*, c.full_name as customer_name, b.booking_code
-        FROM reviews r
-        JOIN customers c ON r.customer_id = c.customer_id
-        JOIN bookings b ON r.booking_id = b.booking_id
-        WHERE r.room_id = ?
-      `;
-      const queryParams = [room_id];
-
-      if (status) {
-        query += " AND r.review_status = ?";
-        queryParams.push(status);
-      }
-
-      if (min_rating) {
-        query += " AND r.rating >= ?";
-        queryParams.push(min_rating);
-      }
-
-      // Add sorting
-      const validSortFields = ["created_at", "rating", "helpful_count"];
-      const sortField = validSortFields.includes(sortBy)
-        ? sortBy
-        : "created_at";
-      const sortDirection = sortOrder.toLowerCase() === "asc" ? "ASC" : "DESC";
-      query += ` ORDER BY r.${sortField} ${sortDirection}`;
-
-      // Add pagination
       const offset = (page - 1) * limit;
-      query += " LIMIT ? OFFSET ?";
-      queryParams.push(limit, offset);
-
-      const [rows] = await pool.execute(query, queryParams);
-
-      // Get total count
-      let countQuery =
-        "SELECT COUNT(*) as total FROM reviews WHERE room_id = ?";
-      const countParams = [room_id];
-
-      if (status) {
-        countQuery += " AND review_status = ?";
-        countParams.push(status);
-      }
-
-      if (min_rating) {
-        countQuery += " AND rating >= ?";
-        countParams.push(min_rating);
-      }
-
-      const [countRows] = await pool.execute(countQuery, countParams);
-      const total = countRows[0].total;
-
-      const reviews = rows.map((reviewData) => {
-        if (reviewData.images) {
-          reviewData.images = JSON.parse(reviewData.images);
-        }
-        return new Review(reviewData);
-      });
-
-      return {
-        reviews,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
-        },
-      };
-    } catch (error) {
-      throw new Error(`Error getting room reviews: ${error.message}`);
-    }
-  }
-
-  /**
-   * Get reviews by customer ID
-   */
-  static async getByCustomerId(filters = {}) {
-    try {
-      const {
-        customer_id,
-        status,
-        page = 1,
-        limit = 10,
-        sortBy = "created_at",
-        sortOrder = "desc",
-      } = filters;
-
       let query = `
-        SELECT r.*, rm.room_number, rm.room_name, b.booking_code
+        SELECT r.*, u.full_name as customer_name, u.avatar as customer_avatar,
+               b.check_in_date, b.check_out_date, rm.room_number, rm.room_type
         FROM reviews r
-        JOIN rooms rm ON r.room_id = rm.room_id
-        JOIN bookings b ON r.booking_id = b.booking_id
-        WHERE r.customer_id = ?
+        JOIN users u ON r.user_id = u.id
+        JOIN bookings b ON r.booking_id = b.id
+        JOIN rooms rm ON b.room_id = rm.id
+        WHERE 1=1
       `;
-      const queryParams = [customer_id];
-
-      if (status) {
-        query += " AND r.review_status = ?";
-        queryParams.push(status);
-      }
-
-      // Add sorting
-      const validSortFields = ["created_at", "rating", "review_status"];
-      const sortField = validSortFields.includes(sortBy)
-        ? sortBy
-        : "created_at";
-      const sortDirection = sortOrder.toLowerCase() === "asc" ? "ASC" : "DESC";
-      query += ` ORDER BY r.${sortField} ${sortDirection}`;
-
-      // Add pagination
-      const offset = (page - 1) * limit;
-      query += " LIMIT ? OFFSET ?";
-      queryParams.push(limit, offset);
-
-      const [rows] = await pool.execute(query, queryParams);
-
-      // Get total count
-      let countQuery =
-        "SELECT COUNT(*) as total FROM reviews WHERE customer_id = ?";
-      const countParams = [customer_id];
-
-      if (status) {
-        countQuery += " AND review_status = ?";
-        countParams.push(status);
-      }
-
-      const [countRows] = await pool.execute(countQuery, countParams);
-      const total = countRows[0].total;
-
-      const reviews = rows.map((reviewData) => {
-        if (reviewData.images) {
-          reviewData.images = JSON.parse(reviewData.images);
-        }
-        return new Review(reviewData);
-      });
-
-      return {
-        reviews,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
-        },
-      };
-    } catch (error) {
-      throw new Error(`Error getting customer reviews: ${error.message}`);
-    }
-  }
-
-  /**
-   * Get all reviews with filters (Admin)
-   */
-  static async getAllWithFilters(filters = {}) {
-    try {
-      const {
-        status,
-        room_id,
-        customer_id,
-        min_rating,
-        page = 1,
-        limit = 20,
-        sortBy = "created_at",
-        sortOrder = "desc",
-      } = filters;
-
-      let query = `
-        SELECT r.*, c.full_name as customer_name, rm.room_number, rm.room_name, b.booking_code
+      let countQuery = `
+        SELECT COUNT(*) as total
         FROM reviews r
-        JOIN customers c ON r.customer_id = c.customer_id
-        JOIN rooms rm ON r.room_id = rm.room_id
-        JOIN bookings b ON r.booking_id = b.booking_id
+        JOIN users u ON r.user_id = u.id
+        JOIN bookings b ON r.booking_id = b.id
         WHERE 1=1
       `;
       const queryParams = [];
 
-      if (status) {
-        query += " AND r.review_status = ?";
-        queryParams.push(status);
+      // Apply filters
+      if (filters.rating) {
+        query += " AND r.rating = ?";
+        countQuery += " AND r.rating = ?";
+        queryParams.push(filters.rating);
       }
 
-      if (room_id) {
-        query += " AND r.room_id = ?";
-        queryParams.push(room_id);
-      }
-
-      if (customer_id) {
-        query += " AND r.customer_id = ?";
-        queryParams.push(customer_id);
-      }
-
-      if (min_rating) {
+      if (filters.min_rating) {
         query += " AND r.rating >= ?";
-        queryParams.push(min_rating);
-      }
-
-      // Add sorting
-      const validSortFields = [
-        "created_at",
-        "rating",
-        "review_status",
-        "helpful_count",
-      ];
-      const sortField = validSortFields.includes(sortBy)
-        ? sortBy
-        : "created_at";
-      const sortDirection = sortOrder.toLowerCase() === "asc" ? "ASC" : "DESC";
-      query += ` ORDER BY r.${sortField} ${sortDirection}`;
-
-      // Add pagination
-      const offset = (page - 1) * limit;
-      query += " LIMIT ? OFFSET ?";
-      queryParams.push(limit, offset);
-
-      const [rows] = await pool.execute(query, queryParams);
-
-      // Get total count
-      let countQuery = "SELECT COUNT(*) as total FROM reviews r WHERE 1=1";
-      const countParams = [];
-
-      if (status) {
-        countQuery += " AND r.review_status = ?";
-        countParams.push(status);
-      }
-
-      if (room_id) {
-        countQuery += " AND r.room_id = ?";
-        countParams.push(room_id);
-      }
-
-      if (customer_id) {
-        countQuery += " AND r.customer_id = ?";
-        countParams.push(customer_id);
-      }
-
-      if (min_rating) {
         countQuery += " AND r.rating >= ?";
-        countParams.push(min_rating);
+        queryParams.push(filters.min_rating);
       }
 
-      const [countRows] = await pool.execute(countQuery, countParams);
-      const total = countRows[0].total;
+      if (filters.user_id) {
+        query += " AND r.user_id = ?";
+        countQuery += " AND r.user_id = ?";
+        queryParams.push(filters.user_id);
+      }
 
-      const reviews = rows.map((reviewData) => {
-        if (reviewData.images) {
-          reviewData.images = JSON.parse(reviewData.images);
-        }
-        return new Review(reviewData);
-      });
+      if (filters.room_id) {
+        query += " AND b.room_id = ?";
+        countQuery += " AND b.room_id = ?";
+        queryParams.push(filters.room_id);
+      }
+
+      if (filters.room_type) {
+        query += " AND rm.room_type = ?";
+        countQuery += " AND rm.room_type = ?";
+        queryParams.push(filters.room_type);
+      }
+
+      if (filters.search) {
+        query += " AND (r.comment LIKE ? OR u.full_name LIKE ?)";
+        countQuery += " AND (r.comment LIKE ? OR u.full_name LIKE ?)";
+        const searchTerm = `%${filters.search}%`;
+        queryParams.push(searchTerm, searchTerm);
+      }
+
+      query += ` ORDER BY r.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
+
+      const [reviews, totalResult] = await Promise.all([
+        executeQuery(query, queryParams),
+        executeQuery(countQuery, queryParams),
+      ]);
 
       return {
-        reviews,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
-        },
+        reviews: reviews.map((review) => new Review(review)),
+        total: totalResult[0].total,
+        page,
+        totalPages: Math.ceil(totalResult[0].total / limit),
       };
     } catch (error) {
-      throw new Error(`Error getting reviews with filters: ${error.message}`);
+      throw error;
     }
   }
 
-  /**
-   * Update review
-   */
-  static async update(review_id, updateData) {
+  // @desc    Get reviews by user ID
+  static async getByUserId(userId, page = 1, limit = 10) {
     try {
-      const fieldsToUpdate = [];
+      const offset = (page - 1) * limit;
+      const query = `
+        SELECT r.*, b.check_in_date, b.check_out_date, 
+               rm.room_number, rm.room_type, rm.images
+        FROM reviews r
+        JOIN bookings b ON r.booking_id = b.id
+        JOIN rooms rm ON b.room_id = rm.id
+        WHERE r.user_id = ?
+        ORDER BY r.created_at DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `;
+      const countQuery =
+        "SELECT COUNT(*) as total FROM reviews WHERE user_id = ?";
+
+      const [reviews, totalResult] = await Promise.all([
+        executeQuery(query, [userId]),
+        executeQuery(countQuery, [userId]),
+      ]);
+
+      return {
+        reviews: reviews.map((review) => new Review(review)),
+        total: totalResult[0].total,
+        page,
+        totalPages: Math.ceil(totalResult[0].total / limit),
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // @desc    Get reviews by room ID
+  static async getByRoomId(roomId, page = 1, limit = 10) {
+    try {
+      // Ensure all parameters are integers
+      const roomIdInt = parseInt(roomId);
+      const pageInt = parseInt(page);
+      const limitInt = parseInt(limit);
+      const offset = (pageInt - 1) * limitInt;
+
+      const query = `
+        SELECT r.*, u.full_name as customer_name, u.avatar as customer_avatar,
+               b.check_in_date, b.check_out_date
+        FROM reviews r
+        JOIN users u ON r.user_id = u.id
+        JOIN bookings b ON r.booking_id = b.id
+        WHERE b.room_id = ?
+        ORDER BY r.created_at DESC
+        LIMIT ${offset}, ${limitInt}
+      `;
+      const countQuery = `
+        SELECT COUNT(*) as total
+        FROM reviews r
+        JOIN bookings b ON r.booking_id = b.id
+        WHERE b.room_id = ?
+      `;
+
+      const [reviews, totalResult] = await Promise.all([
+        executeQuery(query, [roomIdInt]),
+        executeQuery(countQuery, [roomIdInt]),
+      ]);
+
+      return {
+        reviews: reviews.map((review) => new Review(review)),
+        total: totalResult[0].total,
+        page,
+        totalPages: Math.ceil(totalResult[0].total / limit),
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // @desc    Find review by ID
+  static async findById(id) {
+    try {
+      const query = `
+        SELECT r.*, u.full_name as customer_name, u.avatar as customer_avatar,
+               b.check_in_date, b.check_out_date, rm.room_number, rm.room_type
+        FROM reviews r
+        JOIN users u ON r.user_id = u.id
+        JOIN bookings b ON r.booking_id = b.id
+        JOIN rooms rm ON b.room_id = rm.id
+        WHERE r.id = ?
+      `;
+      const results = await executeQuery(query, [id]);
+      return results.length > 0 ? new Review(results[0]) : null;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // @desc    Find review by booking ID
+  static async findByBookingId(bookingId) {
+    try {
+      const query = `
+        SELECT r.*, u.full_name as customer_name, u.avatar as customer_avatar
+        FROM reviews r
+        JOIN users u ON r.user_id = u.id
+        WHERE r.booking_id = ?
+      `;
+      const results = await executeQuery(query, [bookingId]);
+      return results.length > 0 ? new Review(results[0]) : null;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // @desc    Create new review
+  static async create(reviewData) {
+    try {
+      // Validate booking exists and belongs to user
+      const bookingQuery = `
+        SELECT id, user_id, status 
+        FROM bookings 
+        WHERE id = ? AND user_id = ?
+      `;
+      const bookingResult = await executeQuery(bookingQuery, [
+        reviewData.booking_id,
+        reviewData.user_id,
+      ]);
+
+      if (bookingResult.length === 0) {
+        throw new Error("Booking not found or does not belong to user");
+      }
+
+      const booking = bookingResult[0];
+      if (booking.status !== "checked_out") {
+        throw new Error("Can only review completed bookings");
+      }
+
+      // Check if review already exists for this booking
+      const existingReview = await Review.findByBookingId(
+        reviewData.booking_id
+      );
+      if (existingReview) {
+        throw new Error("Review already exists for this booking");
+      }
+
+      // Create review
+      const insertQuery = `
+        INSERT INTO reviews (booking_id, user_id, rating, comment)
+        VALUES (?, ?, ?, ?)
+      `;
+
+      const values = [
+        reviewData.booking_id,
+        reviewData.user_id,
+        reviewData.rating,
+        reviewData.comment || null,
+      ];
+
+      const result = await executeQuery(insertQuery, values);
+      return await Review.findById(result.insertId);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // @desc    Get review statistics
+  static async getStatistics(filters = {}) {
+    try {
+      let query = `
+        SELECT 
+          COUNT(*) as total_reviews,
+          AVG(rating) as average_rating,
+          COUNT(CASE WHEN rating = 5 THEN 1 END) as five_star_count,
+          COUNT(CASE WHEN rating = 4 THEN 1 END) as four_star_count,
+          COUNT(CASE WHEN rating = 3 THEN 1 END) as three_star_count,
+          COUNT(CASE WHEN rating = 2 THEN 1 END) as two_star_count,
+          COUNT(CASE WHEN rating = 1 THEN 1 END) as one_star_count
+        FROM reviews r
+        JOIN bookings b ON r.booking_id = b.id
+        WHERE 1=1
+      `;
+      const queryParams = [];
+
+      if (filters.room_id) {
+        query += " AND b.room_id = ?";
+        queryParams.push(filters.room_id);
+      }
+
+      if (filters.room_type) {
+        query += " AND b.room_id IN (SELECT id FROM rooms WHERE room_type = ?)";
+        queryParams.push(filters.room_type);
+      }
+
+      if (filters.start_date && filters.end_date) {
+        query += " AND DATE(r.created_at) BETWEEN ? AND ?";
+        queryParams.push(filters.start_date, filters.end_date);
+      }
+
+      const results = await executeQuery(query, queryParams);
+      return results[0];
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // @desc    Get room average rating
+  static async getRoomAverageRating(roomId) {
+    try {
+      const query = `
+        SELECT AVG(r.rating) as average_rating, COUNT(r.id) as review_count
+        FROM reviews r
+        JOIN bookings b ON r.booking_id = b.id
+        WHERE b.room_id = ?
+      `;
+      const results = await executeQuery(query, [roomId]);
+      return {
+        average_rating: results[0].average_rating || 0,
+        review_count: results[0].review_count || 0,
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // @desc    Get recent reviews
+  static async getRecentReviews(limit = 5) {
+    try {
+      const query = `
+        SELECT r.*, u.full_name as customer_name, u.avatar as customer_avatar,
+               rm.room_number, rm.room_type
+        FROM reviews r
+        JOIN users u ON r.user_id = u.id
+        JOIN bookings b ON r.booking_id = b.id
+        JOIN rooms rm ON b.room_id = rm.id
+        ORDER BY r.created_at DESC
+        LIMIT ?
+      `;
+      const results = await executeQuery(query, [limit]);
+      return results.map((review) => new Review(review));
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // @desc    Get top rated reviews
+  static async getTopRatedReviews(limit = 5) {
+    try {
+      const query = `
+        SELECT r.*, u.full_name as customer_name, u.avatar as customer_avatar,
+               rm.room_number, rm.room_type
+        FROM reviews r
+        JOIN users u ON r.user_id = u.id
+        JOIN bookings b ON r.booking_id = b.id
+        JOIN rooms rm ON b.room_id = rm.id
+        WHERE r.rating >= 4 AND r.comment IS NOT NULL AND LENGTH(r.comment) > 10
+        ORDER BY r.rating DESC, r.created_at DESC
+        LIMIT ?
+      `;
+      const results = await executeQuery(query, [limit]);
+      return results.map((review) => new Review(review));
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Instance methods
+
+  // @desc    Update review
+  async update(updateData) {
+    try {
+      const allowedFields = ["rating", "comment"];
+      const updateFields = [];
       const values = [];
 
-      const updatableFields = [
-        "rating",
-        "cleanliness_rating",
-        "service_rating",
-        "location_rating",
-        "value_rating",
-        "amenities_rating",
-        "title",
-        "comment",
-        "pros",
-        "cons",
-        "images",
-      ];
-
-      updatableFields.forEach((field) => {
+      for (const field of allowedFields) {
         if (updateData[field] !== undefined) {
-          fieldsToUpdate.push(`${field} = ?`);
-
-          if (field === "images") {
-            values.push(JSON.stringify(updateData[field]));
-          } else {
-            values.push(updateData[field]);
-          }
+          updateFields.push(`${field} = ?`);
+          values.push(updateData[field]);
         }
-      });
-
-      if (fieldsToUpdate.length === 0) {
-        throw new Error("No valid fields to update");
       }
 
-      values.push(review_id);
-
-      await pool.execute(
-        `UPDATE reviews SET ${fieldsToUpdate.join(
-          ", "
-        )}, updated_at = CURRENT_TIMESTAMP WHERE review_id = ?`,
-        values
-      );
-
-      return await this.findById(review_id);
-    } catch (error) {
-      throw new Error(`Error updating review: ${error.message}`);
-    }
-  }
-
-  /**
-   * Update review status (Admin)
-   */
-  static async updateStatus(review_id, status, admin_response = null) {
-    try {
-      const updateQuery = admin_response
-        ? "UPDATE reviews SET review_status = ?, admin_response = ?, admin_response_date = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE review_id = ?"
-        : "UPDATE reviews SET review_status = ?, updated_at = CURRENT_TIMESTAMP WHERE review_id = ?";
-
-      const params = admin_response
-        ? [status, admin_response, review_id]
-        : [status, review_id];
-
-      await pool.execute(updateQuery, params);
-
-      return await this.findById(review_id);
-    } catch (error) {
-      throw new Error(`Error updating review status: ${error.message}`);
-    }
-  }
-
-  /**
-   * Delete review
-   */
-  static async delete(review_id) {
-    try {
-      await pool.execute("DELETE FROM reviews WHERE review_id = ?", [
-        review_id,
-      ]);
-      return true;
-    } catch (error) {
-      throw new Error(`Error deleting review: ${error.message}`);
-    }
-  }
-
-  /**
-   * Increment helpful count
-   */
-  static async incrementHelpfulCount(review_id) {
-    try {
-      await pool.execute(
-        "UPDATE reviews SET helpful_count = helpful_count + 1 WHERE review_id = ?",
-        [review_id]
-      );
-      return true;
-    } catch (error) {
-      throw new Error(`Error incrementing helpful count: ${error.message}`);
-    }
-  }
-
-  /**
-   * Get room review statistics
-   */
-  static async getRoomStatistics(room_id) {
-    try {
-      const [stats] = await pool.execute(
-        `
-        SELECT 
-          COUNT(*) as total_reviews,
-          AVG(rating) as average_rating,
-          AVG(cleanliness_rating) as avg_cleanliness,
-          AVG(service_rating) as avg_service,
-          AVG(location_rating) as avg_location,
-          AVG(value_rating) as avg_value,
-          AVG(amenities_rating) as avg_amenities,
-          COUNT(CASE WHEN rating = 5 THEN 1 END) as five_star,
-          COUNT(CASE WHEN rating = 4 THEN 1 END) as four_star,
-          COUNT(CASE WHEN rating = 3 THEN 1 END) as three_star,
-          COUNT(CASE WHEN rating = 2 THEN 1 END) as two_star,
-          COUNT(CASE WHEN rating = 1 THEN 1 END) as one_star
-        FROM reviews 
-        WHERE room_id = ? AND review_status = 'approved'
-      `,
-        [room_id]
-      );
-
-      return stats[0];
-    } catch (error) {
-      throw new Error(`Error getting room review statistics: ${error.message}`);
-    }
-  }
-
-  /**
-   * Get review analytics (Admin)
-   */
-  static async getAnalytics(timeframe = "30d") {
-    try {
-      let dateFilter = "";
-
-      switch (timeframe) {
-        case "7d":
-          dateFilter =
-            "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
-          break;
-        case "30d":
-          dateFilter =
-            "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)";
-          break;
-        case "90d":
-          dateFilter =
-            "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)";
-          break;
-        case "1y":
-          dateFilter =
-            "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)";
-          break;
-        default:
-          dateFilter =
-            "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)";
+      if (updateFields.length === 0) {
+        return this;
       }
 
-      // Overall statistics
-      const [overallStats] = await pool.execute(`
-        SELECT 
-          COUNT(*) as total_reviews,
-          AVG(rating) as average_rating,
-          COUNT(CASE WHEN review_status = 'pending' THEN 1 END) as pending_reviews,
-          COUNT(CASE WHEN review_status = 'approved' THEN 1 END) as approved_reviews,
-          COUNT(CASE WHEN review_status = 'rejected' THEN 1 END) as rejected_reviews,
-          SUM(helpful_count) as total_helpful_votes
-        FROM reviews 
-        WHERE ${dateFilter}
-      `);
+      values.push(this.id);
+      const query = `UPDATE reviews SET ${updateFields.join(
+        ", "
+      )}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
 
-      // Rating distribution
-      const [ratingDist] = await pool.execute(`
-        SELECT 
-          rating,
-          COUNT(*) as count,
-          ROUND((COUNT(*) * 100.0 / (SELECT COUNT(*) FROM reviews WHERE ${dateFilter})), 2) as percentage
-        FROM reviews 
-        WHERE ${dateFilter}
-        GROUP BY rating
-        ORDER BY rating DESC
-      `);
+      await executeQuery(query, values);
+      return await Review.findById(this.id);
+    } catch (error) {
+      throw error;
+    }
+  }
 
-      // Top rated rooms
-      const [topRooms] = await pool.execute(`
-        SELECT 
-          r.room_id,
-          rm.room_number,
-          rm.room_name,
-          AVG(r.rating) as average_rating,
-          COUNT(r.review_id) as review_count
+  // @desc    Delete review
+  async delete() {
+    try {
+      const query = "DELETE FROM reviews WHERE id = ?";
+      await executeQuery(query, [this.id]);
+      return true;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // @desc    Check if review can be edited (within 24 hours)
+  canBeEdited() {
+    const now = new Date();
+    const createdAt = new Date(this.created_at);
+    const hoursDiff = (now - createdAt) / (1000 * 60 * 60);
+    return hoursDiff <= 24;
+  }
+
+  // @desc    Get rating stars as string
+  getRatingStars() {
+    return "★".repeat(this.rating) + "☆".repeat(5 - this.rating);
+  }
+
+  // @desc    Get rating color class
+  getRatingColorClass() {
+    if (this.rating >= 4) return "text-green-500";
+    if (this.rating >= 3) return "text-yellow-500";
+    if (this.rating >= 2) return "text-orange-500";
+    return "text-red-500";
+  }
+
+  // @desc    Get formatted date
+  getFormattedDate() {
+    return new Date(this.created_at).toLocaleDateString("vi-VN", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  }
+
+  // @desc    Get review sentiment
+  getReviewSentiment() {
+    if (this.rating >= 4) return "positive";
+    if (this.rating >= 3) return "neutral";
+    return "negative";
+  }
+
+  // @desc    Check if review has comment
+  hasComment() {
+    return this.comment && this.comment.trim().length > 0;
+  }
+
+  // @desc    Get truncated comment
+  getTruncatedComment(maxLength = 100) {
+    if (!this.hasComment()) return "";
+
+    if (this.comment.length <= maxLength) {
+      return this.comment;
+    }
+
+    return this.comment.substring(0, maxLength).trim() + "...";
+  }
+
+  // @desc    Get random testimonials for homepage
+  static async getRandomTestimonials(count = 3) {
+    try {
+      // Ensure count is a number
+      const limit = parseInt(count) || 3;
+
+      // First get all qualifying reviews
+      const getAllQuery = `
+        SELECT r.*, u.full_name as customer_name, u.avatar as customer_avatar,
+               rm.room_number, rm.room_type
         FROM reviews r
-        JOIN rooms rm ON r.room_id = rm.room_id
-        WHERE ${dateFilter} AND r.review_status = 'approved'
-        GROUP BY r.room_id, rm.room_number, rm.room_name
-        HAVING review_count >= 3
-        ORDER BY average_rating DESC, review_count DESC
-        LIMIT 10
-      `);
+        JOIN users u ON r.user_id = u.id
+        JOIN bookings b ON r.booking_id = b.id
+        JOIN rooms rm ON b.room_id = rm.id
+        WHERE r.rating >= 3 AND r.comment IS NOT NULL AND r.comment != ''
+      `;
 
-      return {
-        timeframe,
-        overall_statistics: overallStats[0],
-        rating_distribution: ratingDist,
-        top_rated_rooms: topRooms,
-      };
+      const allResults = await executeQuery(getAllQuery);
+
+      // Randomly shuffle and take the required count
+      const shuffled = allResults.sort(() => 0.5 - Math.random());
+      const results = shuffled.slice(0, limit);
+
+      return results.map((reviewData) => {
+        const review = new Review(reviewData);
+        return {
+          id: review.id,
+          name: reviewData.customer_name || "Khách hàng",
+          role: this.getRoleByRoomType(reviewData.room_type),
+          image: reviewData.customer_avatar || this.getDefaultAvatar(),
+          rating: review.rating,
+          comment: review.comment,
+          room_type: reviewData.room_type,
+          room_number: reviewData.room_number,
+        };
+      });
     } catch (error) {
-      throw new Error(`Error getting review analytics: ${error.message}`);
+      console.error("Error fetching random testimonials:", error);
+      throw error;
     }
   }
 
+  // @desc    Get role description based on room type
+  static getRoleByRoomType(roomType) {
+    const roleMap = {
+      single: "Du khách",
+      double: "Cặp đôi",
+      suite: "Khách VIP",
+      family: "Gia đình",
+      deluxe: "Khách doanh nhân",
+    };
+    return roleMap[roomType] || "Khách hàng";
+  }
+
+  // @desc    Get default avatar based on name hash
+  static getDefaultAvatar() {
+    const avatars = [
+      "https://images.unsplash.com/photo-1494790108755-2616b612b5bc?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80",
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80",
+      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80",
+      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80",
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80",
+    ];
+    return avatars[Math.floor(Math.random() * avatars.length)];
+  }
+
+  // @desc    Get JSON representation
   toJSON() {
     return {
-      review_id: this.review_id,
-      booking_id: this.booking_id,
-      customer_id: this.customer_id,
-      room_id: this.room_id,
-      rating: this.rating,
-      cleanliness_rating: this.cleanliness_rating,
-      service_rating: this.service_rating,
-      location_rating: this.location_rating,
-      value_rating: this.value_rating,
-      amenities_rating: this.amenities_rating,
-      title: this.title,
-      comment: this.comment,
-      pros: this.pros,
-      cons: this.cons,
-      images: this.images,
-      helpful_count: this.helpful_count,
-      verified_stay: this.verified_stay,
-      review_status: this.review_status,
-      admin_response: this.admin_response,
-      admin_response_date: this.admin_response_date,
-      created_at: this.created_at,
-      updated_at: this.updated_at,
-      // Additional fields from joins
-      customer_name: this.customer_name,
-      room_number: this.room_number,
-      room_name: this.room_name,
-      booking_code: this.booking_code,
+      ...this,
+      rating_stars: this.getRatingStars(),
+      rating_color_class: this.getRatingColorClass(),
+      formatted_date: this.getFormattedDate(),
+      review_sentiment: this.getReviewSentiment(),
+      has_comment: this.hasComment(),
+      truncated_comment: this.getTruncatedComment(),
+      can_be_edited: this.canBeEdited(),
     };
   }
 }

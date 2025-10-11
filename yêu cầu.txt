@@ -1,80 +1,335 @@
-Tên sản phẩm nghiên cứu: Thiết kế và xây dựng Website quản lý vận hành Homestay
-1. Mục tiêu
-Xây dựng một website quản trị chuyên biệt cho chủ homestay, hỗ trợ quản lý toàn diện các nghiệp vụ: phòng, khách hàng, nhân viên, dịch vụ bổ sung, đơn đặt phòng, thanh toán, báo cáo.
-Vận dụng kiến thức về phân tích hệ thống, lập trình web, cơ sở dữ liệu, bảo mật, phân quyền để thiết kế và triển khai.
-Đảm bảo hệ thống có tính bảo mật cao, dễ mở rộng, và thân thiện với người dùng.
-2. Nội dung công việc
-2.1. Phân tích nghiệp vụ
-Tìm hiểu quy trình vận hành homestay: đặt phòng trực tuyến, check-in/check-out, thanh toán, quản lý nhân sự, quản lý dịch vụ bổ sung (ăn uống, tour, thuê xe...).
-Phân tích các đối tượng sử dụng hệ thống:
-Khách hàng: đặt phòng, thanh toán, phản hồi.
-Lễ tân/nhân viên: xác nhận đơn đặt phòng, cập nhật tình trạng phòng.
-Chủ homestay/quản lý: quản lý nhân sự, doanh thu, báo cáo.
-2.2. Thiết kế hệ thống
-Sơ đồ Use Case: bao quát toàn bộ nghiệp vụ (khách hàng – nhân viên – chủ homestay).
-Sơ đồ Hoạt động (Activity Diagram): luồng đặt phòng, thanh toán, quản lý báo cáo.
-Sơ đồ Tuần tự (Sequence Diagram): tương tác khách hàng đặt phòng, nhân viên xác nhận, hệ thống lưu đơn.
-Sơ đồ Lớp (Class Diagram): phòng, đơn đặt, khách hàng, nhân viên, dịch vụ, thanh toán.
-Thiết kế CSDL: bảng phòng, khách hàng, nhân viên, dịch vụ, đơn đặt phòng, thanh toán, báo cáo.
-2.3. Chức năng chi tiết
-1) Khách hàng
-Đăng ký, đăng nhập, quản lý thông tin cá nhân.
-Xem danh sách homestay, phòng trống, giá theo mùa.
-Đặt phòng (ngày đến, ngày đi, loại phòng, dịch vụ kèm theo).
-Thanh toán trực tuyến (VNPay/MoMo demo).
-Xem lịch sử đặt phòng và trạng thái đơn.
-Đánh giá chất lượng dịch vụ.
-2) Nhân viên/Lễ tân
-Xác nhận/huỷ đơn đặt phòng.
-Quản lý check-in/check-out.
-Quản lý dịch vụ bổ sung khách yêu cầu.
-Gửi báo cáo ngắn hàng ngày cho quản lý.
-3) Quản lý/Chủ homestay
-Quản lý phòng: thêm/sửa/xóa, cập nhật tình trạng.
-Quản lý khách hàng: hồ sơ, lịch sử đặt phòng.
-Quản lý nhân viên: thêm/sửa/xóa, phân quyền.
-Quản lý dịch vụ: tour, ăn uống, thuê xe.
-Xem báo cáo doanh thu (ngày/tháng/năm).
-Thống kê tỷ lệ lấp đầy phòng (% occupancy rate).
-3. Yêu cầu sản phẩm
-Website hoạt động đầy đủ các chức năng trên.
-Giao diện quản trị thân thiện, rõ ràng, hướng đến nghiệp vụ thực tế homestay.
-CSDL thiết kế chuẩn hóa, tối ưu hóa truy vấn.
-Có tích hợp bảo mật và phân quyền theo vai trò (khách hàng/nhân viên/quản lý).
-Bộ sơ đồ UML đầy đủ, được vẽ bằng AI/hỗ trợ công cụ.
-Source code quản lý trên GitHub với lịch sử commit rõ ràng, có README.md.
-Báo cáo từ 60–80 trang, đầy đủ các phần: mở đầu, cơ sở lý thuyết, phân tích thiết kế, triển khai, kiểm thử, kết luận.
-4. Công nghệ đề xuất
-Backend: Theo thế mạnh của bản thân
-Frontend: ReactJS hoặc Next.js.
-5. Thời gian thực hiện
-Tổng thời gian: 04–06 tuần.
-Tuần 1: Khảo sát – phân tích – vẽ sơ đồ UML.
-Tuần 2: Thiết kế CSDL – dựng giao diện chính.
-Tuần 3: Hoàn thiện backend API + tích hợp frontend.
-Tuần 4: Hoàn thiện các chức năng nghiệp vụ.
-Tuần 5: Kiểm thử – báo cáo – tinh chỉnh.
-Tuần 6: Nộp báo cáo.
-6. Kết quả dự kiến
-6.1. Về kiến thức
-Vận dụng kiến thức lập trình web, CSDL, bảo mật.
-Phân tích, thiết kế hệ thống thông tin trong nghiệp vụ homestay.
-Hiểu và triển khai quy trình thực tế: đặt phòng, thanh toán, quản lý nhân sự & dịch vụ.
-Nắm kỹ phương pháp tối ưu hiệu suất & UX.
-6.2. Về kỹ năng
-Lập trình full-stack
-Phân tích yêu cầu & thiết kế CSDL nghiệp vụ homestay.
-Triển khai website trên môi trường thực tế.
-Tích hợp bảo mật, phân quyền, lưu trữ dữ liệu an toàn.
-6.3. Về sản phẩm
-Website quản lý homestay với giao diện thân thiện.
-Các module: khách hàng, nhân viên, dịch vụ, phòng, đặt phòng, thanh toán.
-Module thống kê – báo cáo doanh thu, công suất phòng.
-CSDL quản lý phòng, khách hàng, nhân viên, dịch vụ, đơn đặt.
-Màu sắc & phong cách: nên lấy cảm hứng từ ngành du lịch – nghỉ dưỡng, ưu tiên tông màu xanh lá, xanh dương nhạt, màu gỗ, màu be để tạo cảm giác gần gũi, thiên nhiên.
-Trang chủ: cần có banner đẹp (ảnh homestay, thiên nhiên, phòng nghỉ), kèm slogan ngắn gọn, tạo điểm nhấn.
-Danh sách phòng: hiển thị trực quan, có ảnh phòng, giá thuê, tình trạng (trống/đã đặt), lọc theo ngày, giá, loại phòng.
-Form đặt phòng: đơn giản, dễ dùng, có gợi ý ngày, số khách.
-Bảng quản trị (dashboard): hiện đại, có biểu đồ doanh thu, tỷ lệ lấp đầy, thông báo nhanh. Có thể tham khảo giao diện dạng Admin Template.
-Responsive: giao diện chạy mượt trên cả laptop và điện thoại.
+1. Cấu Trúc Backend & Các Thành Phần Cốt Lõi (Shared Components)
+Đây là nền tảng dùng chung cho tất cả các module.
+
+a. Xác thực & Phân quyền (Authentication & Authorization)
+Logic: Sử dụng JSON Web Token (JWT). Khi người dùng đăng nhập thành công, Backend sẽ cấp một accessToken và refreshToken. accessToken sẽ được gửi kèm trong header của mỗi yêu cầu (request) tới các API cần bảo vệ.
+
+Models CSDL: Cần một model User với các trường quan trọng như email, password (đã được hash), fullName, role (enum: 'customer', 'staff', 'admin').
+
+API Endpoints:
+
+POST /api/auth/register: Đăng ký tài khoản cho khách hàng.
+
+POST /api/auth/login: Đăng nhập, trả về JWT nếu thành công.
+
+GET /api/auth/me: Lấy thông tin người dùng hiện tại dựa trên token.
+
+Middleware:
+
+authenticate: Middleware kiểm tra xem request có chứa token hợp lệ hay không.
+
+authorize(roles): Middleware kiểm tra xem người dùng có vai trò (role) phù hợp để truy cập một API cụ thể hay không (ví dụ, chỉ 'admin' mới được gọi API tạo nhân viên).
+
+b. Models Cơ Sở Dữ Liệu Chính
+Ngoài User, các model chính cần được định nghĩa rõ ràng:
+
+Room: name, description, images (mảng các URL), pricePerNight, type (ví dụ: 'Standard', 'Deluxe'), amenities (tiện nghi), status ('available', 'maintenance').
+
+Booking: customer (liên kết tới User), room (liên kết tới Room), checkInDate, checkOutDate, numberOfGuests, services (mảng các dịch vụ đã chọn), totalAmount, paymentStatus ('pending', 'paid', 'failed'), bookingStatus ('pending', 'confirmed', 'checked-in', 'completed', 'cancelled').
+
+Service: name, description, price.
+
+Payment: booking (liên kết tới Booking), amount, paymentMethod ('VNPay', 'MoMo'), transactionId, status ('success', 'failed').
+
+Review: customer, room, rating (1-5 sao), comment, createdAt.
+
+2. Phân Tích Chi Tiết Từng Module Chức Năng
+2.1. Module Khách Hàng (Customer-Facing)
+Đây là giao diện chính mà khách hàng tương tác.
+
+1) Đăng ký, Đăng nhập, Quản lý thông tin:
+
+Backend API: Sử dụng các endpoint /api/auth/ đã nêu ở trên. Thêm endpoint PUT /api/users/profile để cập nhật thông tin cá nhân.
+
+Frontend Components:
+
+RegisterPage: Chứa form đăng ký, gọi API register.
+
+LoginPage: Chứa form đăng nhập, gọi API login, sau đó lưu token vào localStorage hoặc cookies.
+
+ProfilePage: Gọi API me để hiển thị thông tin và có form để gọi API update profile.
+
+2) Xem danh sách phòng & chi tiết:
+
+Backend API: GET /api/rooms?checkIn=...&checkOut=...&type=...: API này quan trọng nhất. Backend cần xử lý logic phức tạp:
+
+Lấy tất cả các phòng.
+
+Lọc ra những phòng đã được đặt trong khoảng thời gian [checkIn, checkOut] từ bảng Booking.
+
+Trả về danh sách các phòng còn trống.
+
+GET /api/rooms/:id: Lấy thông tin chi tiết của một phòng.
+
+Frontend Components:
+
+HomePage/RoomsPage: Hiển thị danh sách các RoomCard. Có các bộ lọc (date picker, dropdown loại phòng). Khi người dùng thay đổi bộ lọc, component sẽ gọi lại API /api/rooms với các tham số tương ứng.
+
+RoomDetailPage: Hiển thị toàn bộ thông tin, hình ảnh, tiện nghi của phòng khi người dùng click vào một RoomCard.
+
+3) Đặt phòng và Thanh toán:
+
+Backend API:
+
+POST /api/bookings: Nhận thông tin đặt phòng (roomId, checkIn, checkOut...), kiểm tra lại lần cuối xem phòng có trống không. Nếu có, tạo một bản ghi Booking với paymentStatus là 'pending'.
+
+POST /api/payments/create-vnpay-url: Nhận bookingId, tạo URL thanh toán của VNPay và trả về cho client.
+
+GET /api/payments/vnpay-return: Trang mà VNPay sẽ redirect về sau khi khách hàng thanh toán. Backend nhận kết quả, xác thực chữ ký điện tử và cập nhật trạng thái Booking và Payment.
+
+Frontend Components:
+
+BookingForm: Trên trang chi tiết phòng, người dùng điền thông tin và nhấn "Đặt ngay". Form này sẽ gọi API POST /api/bookings.
+
+Sau khi tạo booking thành công, frontend gọi API create-vnpay-url, nhận URL và tự động chuyển hướng người dùng sang trang thanh toán của VNPay.
+
+PaymentStatusPage: Trang hiển thị kết quả thanh toán (thành công/thất bại) sau khi VNPay redirect về.
+
+4) Lịch sử đặt phòng và Đánh giá:
+
+Backend API:
+
+GET /api/bookings/my-history: Lấy tất cả các đơn đặt phòng của người dùng đang đăng nhập.
+
+POST /api/reviews: Cho phép khách hàng gửi đánh giá. Backend cần kiểm tra xem khách hàng có thực sự đã ở phòng này chưa (dựa vào booking status 'completed').
+
+Frontend Components:
+
+BookingHistoryPage: Hiển thị danh sách các đơn đặt phòng đã có.
+
+ReviewForm: Component cho phép người dùng nhập đánh giá, chỉ hiển thị với các đơn đã hoàn thành.
+
+2.2. Module Nhân Viên / Lễ Tân (Staff-Facing)
+Đây là giao diện quản trị nội bộ. Cần một layout riêng (Admin Layout).
+
+1) Quản lý Đơn đặt phòng:
+
+Backend API:
+
+GET /api/admin/bookings: Lấy tất cả các đơn đặt phòng, có thể lọc theo trạng thái, ngày...
+
+PUT /api/admin/bookings/:id/confirm: Xác nhận đơn.
+
+PUT /api/admin/bookings/:id/check-in: Check-in cho khách.
+
+PUT /api/admin/bookings/:id/cancel: Hủy đơn.
+
+Frontend Components:
+
+BookingManagementPage: Giao diện bảng (table) hiển thị danh sách các đơn đặt phòng với các nút hành động (Xác nhận, Hủy...). Có thể có giao diện dạng Lịch (Calendar View) để trực quan hơn.
+
+2) Quản lý Dịch vụ bổ sung:
+
+Backend API: POST /api/bookings/:id/services: Thêm một dịch vụ (serviceId) vào một đơn đặt phòng đã có. Backend sẽ tự động cập nhật lại totalAmount.
+
+Frontend Components: Trong trang chi tiết đơn đặt phòng của nhân viên, có một mục để thêm các dịch vụ có sẵn vào đơn.
+
+2.3. Module Quản Lý / Chủ Homestay (Admin-Facing)
+Kế thừa toàn bộ chức năng của Nhân viên và có thêm các quyền cao nhất.
+
+1) Quản lý CRUD (Create, Read, Update, Delete):
+
+Backend API: Cung cấp đầy đủ các endpoint CRUD cho các tài nguyên:
+
+Rooms: GET, POST, PUT, DELETE /api/admin/rooms/:id?
+
+Staffs: GET, POST, PUT, DELETE /api/admin/users/:id? (lọc theo role='staff')
+
+Services: GET, POST, PUT, DELETE /api/admin/services/:id?
+
+Customers: GET /api/admin/users?role=customer (thường chỉ xem, không xóa).
+
+Frontend Components: Mỗi loại tài nguyên sẽ có một trang quản lý riêng:
+
+RoomListPage, RoomEditPage
+
+StaffListPage, StaffEditPage
+
+ServiceListPage, ServiceEditPage
+
+Các trang này thường có cấu trúc một bảng dữ liệu và các form (thường là modal) để thêm/sửa.
+
+2) Báo cáo & Thống kê:
+
+Backend API: Đây là các API yêu cầu truy vấn CSDL phức tạp.
+
+GET /api/reports/revenue?period=daily|monthly|yearly: Tính tổng doanh thu từ các Booking có paymentStatus là 'paid' và bookingStatus là 'completed'. Sử dụng các hàm tổng hợp của CSDL (SUM, GROUP BY).
+
+GET /api/reports/occupancy?from=...&to=...: Tính tỷ lệ lấp đầy. Logic: (Tổng số đêm đã được đặt trong kỳ / (Tổng số phòng * Tổng số đêm trong kỳ)) * 100.
+
+Frontend Components:
+
+DashboardPage: Trang tổng quan, sử dụng các thư viện biểu đồ như Chart.js hoặc Recharts để vẽ biểu đồ đường (doanh thu) và biểu đồ tròn (tỷ lệ lấp đầy) dựa trên dữ liệu trả về từ API báo cáo.
+
+Kết Luận Về Mặt Code
+Backend là bộ não: Toàn bộ logic nghiệp vụ, quy tắc, tính toán và tương tác với CSDL đều nằm ở Backend. Việc thiết kế các API endpoint một cách rõ ràng, RESTful và bảo mật là yếu tố quyết định sự thành công của dự án.
+
+Frontend là bộ mặt: ReactJS/Next.js chịu trách nhiệm xây dựng một giao diện người dùng (UI) linh hoạt, gọi API để lấy dữ liệu và gửi yêu cầu thay đổi. Việc quản lý trạng thái (state management) với các hooks (useState, useEffect) hoặc thư viện (Redux, Zustand) là rất quan trọng để UI luôn đồng bộ với dữ liệu.
+
+
+Đây là nền tảng dùng chung cho tất cả các module.
+
+a. Xác thực & Phân quyền (Authentication & Authorization)
+Logic: Sử dụng JSON Web Token (JWT). Khi người dùng đăng nhập thành công, Backend sẽ cấp một accessToken và refreshToken. accessToken sẽ được gửi kèm trong header của mỗi yêu cầu (request) tới các API cần bảo vệ.
+
+Models CSDL: Cần một model User với các trường quan trọng như email, password (đã được hash), fullName, role (enum: 'customer', 'staff', 'admin').
+
+API Endpoints:
+
+POST /api/auth/register: Đăng ký tài khoản cho khách hàng.
+
+POST /api/auth/login: Đăng nhập, trả về JWT nếu thành công.
+
+GET /api/auth/me: Lấy thông tin người dùng hiện tại dựa trên token.
+
+Middleware:
+
+authenticate: Middleware kiểm tra xem request có chứa token hợp lệ hay không.
+
+authorize(roles): Middleware kiểm tra xem người dùng có vai trò (role) phù hợp để truy cập một API cụ thể hay không (ví dụ, chỉ 'admin' mới được gọi API tạo nhân viên).
+
+b. Models Cơ Sở Dữ Liệu Chính
+Ngoài User, các model chính cần được định nghĩa rõ ràng:
+
+Room: name, description, images (mảng các URL), pricePerNight, type (ví dụ: 'Standard', 'Deluxe'), amenities (tiện nghi), status ('available', 'maintenance').
+
+Booking: customer (liên kết tới User), room (liên kết tới Room), checkInDate, checkOutDate, numberOfGuests, services (mảng các dịch vụ đã chọn), totalAmount, paymentStatus ('pending', 'paid', 'failed'), bookingStatus ('pending', 'confirmed', 'checked-in', 'completed', 'cancelled').
+
+Service: name, description, price.
+
+Payment: booking (liên kết tới Booking), amount, paymentMethod ('VNPay', 'MoMo'), transactionId, status ('success', 'failed').
+
+Review: customer, room, rating (1-5 sao), comment, createdAt.
+
+2. Phân Tích Chi Tiết Từng Module Chức Năng
+2.1. Module Khách Hàng (Customer-Facing)
+Đây là giao diện chính mà khách hàng tương tác.
+
+1) Đăng ký, Đăng nhập, Quản lý thông tin:
+
+Backend API: Sử dụng các endpoint /api/auth/ đã nêu ở trên. Thêm endpoint PUT /api/users/profile để cập nhật thông tin cá nhân.
+
+Frontend Components:
+
+RegisterPage: Chứa form đăng ký, gọi API register.
+
+LoginPage: Chứa form đăng nhập, gọi API login, sau đó lưu token vào localStorage hoặc cookies.
+
+ProfilePage: Gọi API me để hiển thị thông tin và có form để gọi API update profile.
+
+2) Xem danh sách phòng & chi tiết:
+
+Backend API: GET /api/rooms?checkIn=...&checkOut=...&type=...: API này quan trọng nhất. Backend cần xử lý logic phức tạp:
+
+Lấy tất cả các phòng.
+
+Lọc ra những phòng đã được đặt trong khoảng thời gian [checkIn, checkOut] từ bảng Booking.
+
+Trả về danh sách các phòng còn trống.
+
+GET /api/rooms/:id: Lấy thông tin chi tiết của một phòng.
+
+Frontend Components:
+
+HomePage/RoomsPage: Hiển thị danh sách các RoomCard. Có các bộ lọc (date picker, dropdown loại phòng). Khi người dùng thay đổi bộ lọc, component sẽ gọi lại API /api/rooms với các tham số tương ứng.
+
+RoomDetailPage: Hiển thị toàn bộ thông tin, hình ảnh, tiện nghi của phòng khi người dùng click vào một RoomCard.
+
+3) Đặt phòng và Thanh toán:
+
+Backend API:
+
+POST /api/bookings: Nhận thông tin đặt phòng (roomId, checkIn, checkOut...), kiểm tra lại lần cuối xem phòng có trống không. Nếu có, tạo một bản ghi Booking với paymentStatus là 'pending'.
+
+POST /api/payments/create-vnpay-url: Nhận bookingId, tạo URL thanh toán của VNPay và trả về cho client.
+
+GET /api/payments/vnpay-return: Trang mà VNPay sẽ redirect về sau khi khách hàng thanh toán. Backend nhận kết quả, xác thực chữ ký điện tử và cập nhật trạng thái Booking và Payment.
+
+Frontend Components:
+
+BookingForm: Trên trang chi tiết phòng, người dùng điền thông tin và nhấn "Đặt ngay". Form này sẽ gọi API POST /api/bookings.
+
+Sau khi tạo booking thành công, frontend gọi API create-vnpay-url, nhận URL và tự động chuyển hướng người dùng sang trang thanh toán của VNPay.
+
+PaymentStatusPage: Trang hiển thị kết quả thanh toán (thành công/thất bại) sau khi VNPay redirect về.
+
+4) Lịch sử đặt phòng và Đánh giá:
+
+Backend API:
+
+GET /api/bookings/my-history: Lấy tất cả các đơn đặt phòng của người dùng đang đăng nhập.
+
+POST /api/reviews: Cho phép khách hàng gửi đánh giá. Backend cần kiểm tra xem khách hàng có thực sự đã ở phòng này chưa (dựa vào booking status 'completed').
+
+Frontend Components:
+
+BookingHistoryPage: Hiển thị danh sách các đơn đặt phòng đã có.
+
+ReviewForm: Component cho phép người dùng nhập đánh giá, chỉ hiển thị với các đơn đã hoàn thành.
+
+2.2. Module Nhân Viên / Lễ Tân (Staff-Facing)
+Đây là giao diện quản trị nội bộ. Cần một layout riêng (Admin Layout).
+
+1) Quản lý Đơn đặt phòng:
+
+Backend API:
+
+GET /api/admin/bookings: Lấy tất cả các đơn đặt phòng, có thể lọc theo trạng thái, ngày...
+
+PUT /api/admin/bookings/:id/confirm: Xác nhận đơn.
+
+PUT /api/admin/bookings/:id/check-in: Check-in cho khách.
+
+PUT /api/admin/bookings/:id/cancel: Hủy đơn.
+
+Frontend Components:
+
+BookingManagementPage: Giao diện bảng (table) hiển thị danh sách các đơn đặt phòng với các nút hành động (Xác nhận, Hủy...). Có thể có giao diện dạng Lịch (Calendar View) để trực quan hơn.
+
+2) Quản lý Dịch vụ bổ sung:
+
+Backend API: POST /api/bookings/:id/services: Thêm một dịch vụ (serviceId) vào một đơn đặt phòng đã có. Backend sẽ tự động cập nhật lại totalAmount.
+
+Frontend Components: Trong trang chi tiết đơn đặt phòng của nhân viên, có một mục để thêm các dịch vụ có sẵn vào đơn.
+
+2.3. Module Quản Lý / Chủ Homestay (Admin-Facing)
+Kế thừa toàn bộ chức năng của Nhân viên và có thêm các quyền cao nhất.
+
+1) Quản lý CRUD (Create, Read, Update, Delete):
+
+image.png
+Rooms: GET, POST, PUT, DELETE /api/admin/rooms/:id?
+
+Staffs: GET, POST, PUT, DELETE /api/admin/users/:id? (lọc theo role='staff')
+
+Services: GET, POST, PUT, DELETE /api/admin/services/:id?
+
+Customers: GET /api/admin/users?role=customer (thường chỉ xem, không xóa).
+
+Frontend Components: Mỗi loại tài nguyên sẽ có một trang quản lý riêng:
+
+RoomListPage, RoomEditPage
+
+StaffListPage, StaffEditPage
+
+ServiceListPage, ServiceEditPage
+
+Các trang này thường có cấu trúc một bảng dữ liệu và các form (thường là modal) để thêm/sửa.
+
+2) Báo cáo & Thống kê:
+
+Backend API: Đây là các API yêu cầu truy vấn CSDL phức tạp.
+
+GET /api/reports/revenue?period=daily|monthly|yearly: Tính tổng doanh thu từ các Booking có paymentStatus là 'paid' và bookingStatus là 'completed'. Sử dụng các hàm tổng hợp của CSDL (SUM, GROUP BY).
+
+GET /api/reports/occupancy?from=...&to=...: Tính tỷ lệ lấp đầy. Logic: (Tổng số đêm đã được đặt trong kỳ / (Tổng số phòng * Tổng số đêm trong kỳ)) * 100.
+
+Frontend Components:
+
+DashboardPage: Trang tổng quan, sử dụng các thư viện biểu đồ như Chart.js hoặc Recharts để vẽ biểu đồ đường (doanh thu) và biểu đồ tròn (tỷ lệ lấp đầy) dựa trên dữ liệu trả về từ API báo cáo.
+
+Kết Luận Về Mặt Code
+Backend là bộ não: Toàn bộ logic nghiệp vụ, quy tắc, tính toán và tương tác với CSDL đều nằm ở Backend. Việc thiết kế các API endpoint một cách rõ ràng, RESTful và bảo mật là yếu tố quyết định sự thành công của dự án.
+
+Frontend là bộ mặt: ReactJS/Next.js chịu trách nhiệm xây dựng một giao diện người dùng (UI) linh hoạt, gọi API để lấy dữ liệu và gửi yêu cầu thay đổi. Việc quản lý trạng thái (state management) với các hooks (useState, useEffect) hoặc thư viện (Redux, Zustand) là rất quan trọng để UI luôn đồng bộ với dữ liệu.
 

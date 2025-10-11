@@ -1,141 +1,135 @@
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
+const compression = require("compression");
+const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
-const config = require("./config/config");
+const path = require("path");
+require("dotenv").config();
+
+// Import database
 const { testConnection } = require("./config/database");
 
-const customerRoutes = require("./routes/customerRoutes");
-const roomRoutes = require("./routes/roomRoutes");
-const bookingRoutes = require("./routes/bookingRoutes");
-const paymentRoutes = require("./routes/paymentRoutes");
-const enhancedPaymentRoutes = require("./routes/enhancedPaymentRoutes");
-const preferenceRoutes = require("./routes/preferenceRoutes");
-const searchRoutes = require("./routes/searchRoutes");
-const notificationRoutes = require("./routes/notificationRoutes");
-const staffRoutes = require("./routes/staffRoutes");
-const adminRoutes = require("./routes/adminRoutes");
-const imageRoutes = require("./routes/imageRoutes");
+// Import routes
+const apiRoutes = require("./routes");
+
+// Import middleware
+const errorHandler = require("./middleware/errorHandler");
+const notFound = require("./middleware/notFound");
 
 const app = express();
+const PORT = process.env.PORT || 5000;
 
-// Serve static files from public directory
-app.use("/static", express.static("public"));
+// CORS configuration (must be before other middleware)
+const corsOptions = {
+  origin: [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+    "http://localhost:3000",
+    process.env.CORS_ORIGIN,
+  ].filter(Boolean),
+  credentials: true,
+  optionsSuccessStatus: 200,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "Origin",
+    "X-Requested-With",
+    "Accept",
+  ],
+};
+app.use(cors(corsOptions));
 
+// Security middleware with relaxed CSP for development
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
-  })
-);
-app.use(
-  cors({
-    origin: config.cors.origin,
-    credentials: true,
+    contentSecurityPolicy: false, // Disable CSP for development to allow images
   })
 );
 
+// Rate limiting (more lenient for development)
 const limiter = rateLimit({
-  windowMs: config.security.rateLimitWindow * 60 * 1000,
-  max: config.security.rateLimitMaxRequests,
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 1000, // increase to 1000 requests per windowMs for development
   message: {
-    success: false,
-    message: "Too many requests from this IP, please try again later.",
+    error: "Too many requests from this IP, please try again later.",
   },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
-app.use(limiter);
+app.use("/api/", limiter);
 
+// Body parsing middleware
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-  next();
-});
+// Serve static files (uploads)
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+// Compression middleware
+app.use(compression());
+
+// Logging middleware
+if (process.env.NODE_ENV === "development") {
+  app.use(morgan("dev"));
+} else {
+  app.use(morgan("combined"));
+}
+
+// Health check endpoint
 app.get("/health", (req, res) => {
-  res.json({
-    success: true,
-    message: "Homestay Management System API is running",
+  res.status(200).json({
+    status: "OK",
+    message: "Homestay API is running",
     timestamp: new Date().toISOString(),
-    environment: config.server.env,
+    environment: process.env.NODE_ENV || "development",
   });
 });
 
-app.use("/api/customers", customerRoutes);
-app.use("/api/rooms", roomRoutes);
-app.use("/api/bookings", bookingRoutes);
-app.use("/api/payment", paymentRoutes);
-app.use("/api/payments", enhancedPaymentRoutes);
-app.use("/api/preferences", preferenceRoutes);
-app.use("/api/search", searchRoutes);
-app.use("/api/notifications", notificationRoutes);
-app.use("/api/services", require("./routes/additionalServiceRoutes"));
-app.use("/api/reviews", require("./routes/reviewRoutes"));
-app.use("/api/pricing", require("./routes/seasonalPricingRoutes"));
-app.use("/api/analytics", require("./routes/analyticsRoutes"));
-app.use("/api/staff", staffRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/images", imageRoutes);
+// API routes
+app.use("/api", apiRoutes);
 
-app.use("*", (req, res) => {
-  res.status(404).json({
-    success: false,
-    message: "API endpoint not found",
-    path: req.originalUrl,
+// Static files (for uploaded images)
+app.use("/uploads", express.static("uploads"));
+
+// API documentation endpoint
+app.get("/api", (req, res) => {
+  res.json({
+    message: "Homestay Management API",
+    version: "1.0.0",
+    endpoints: {
+      auth: "/api/auth",
+      users: "/api/users",
+      rooms: "/api/rooms",
+      bookings: "/api/bookings",
+      payments: "/api/payments",
+      services: "/api/services",
+      reports: "/api/reports",
+    },
+    documentation: "See README.md for detailed API documentation",
   });
 });
 
-app.use((error, req, res, next) => {
-  console.error("Global Error Handler:", error);
+// Error handling middleware
+app.use(notFound);
+app.use(errorHandler);
 
-  if (error.name === "ValidationError") {
-    return res.status(400).json({
-      success: false,
-      message: "Validation error",
-      error: error.message,
-    });
-  }
-
-  if (error.name === "UnauthorizedError") {
-    return res.status(401).json({
-      success: false,
-      message: "Unauthorized access",
-    });
-  }
-
-  if (error.code === "ER_DUP_ENTRY") {
-    return res.status(409).json({
-      success: false,
-      message: "Duplicate entry - resource already exists",
-    });
-  }
-
-  res.status(500).json({
-    success: false,
-    message: "Internal server error",
-    error:
-      config.server.env === "development"
-        ? error.message
-        : "Something went wrong",
-  });
-});
-
+// Start server
 const startServer = async () => {
   try {
+    // Test database connection
     const dbConnected = await testConnection();
     if (!dbConnected) {
-      console.error("❌ Failed to connect to database. Server will not start.");
+      console.error("❌ Failed to connect to database. Exiting...");
       process.exit(1);
     }
 
-    const PORT = config.server.port;
+    // Start server
     app.listen(PORT, () => {
-      console.log(
-        `🚀 Homestay Management System API Server running on port ${PORT}`
-      );
-      console.log(`📍 Environment: ${config.server.env}`);
-      console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
-      console.log(`💊 Health Check: http://localhost:${PORT}/health`);
+
     });
   } catch (error) {
     console.error("❌ Failed to start server:", error);
@@ -143,24 +137,30 @@ const startServer = async () => {
   }
 };
 
+// Graceful shutdown
 process.on("SIGTERM", () => {
-  console.log("SIGTERM received, shutting down gracefully...");
+
   process.exit(0);
 });
 
 process.on("SIGINT", () => {
-  console.log("SIGINT received, shutting down gracefully...");
+
   process.exit(0);
 });
 
+// Handle uncaught exceptions
 process.on("uncaughtException", (error) => {
   console.error("Uncaught Exception:", error);
   process.exit(1);
 });
 
+// Handle unhandled promise rejections
 process.on("unhandledRejection", (reason, promise) => {
   console.error("Unhandled Rejection at:", promise, "reason:", reason);
   process.exit(1);
 });
 
+// Start the server
 startServer();
+
+module.exports = app;

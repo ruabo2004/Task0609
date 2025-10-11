@@ -1,77 +1,45 @@
-import React from "react";
-import { Link } from "react-router-dom";
-import { Home, Mail, Phone, MapPin } from "lucide-react";
+import { Link } from 'react-router-dom';
 
 /**
- * Footer Component
+ * Footer component for main layout
  */
 const Footer = () => {
+  const currentYear = new Date().getFullYear();
+
   return (
-    <footer className="bg-gray-900 text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <footer className="bg-gray-800 text-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          {/* Brand */}
-          <div className="col-span-1 md:col-span-2">
-            <div className="flex items-center mb-4">
-              <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center mr-3">
-                <Home className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-bold">Homestay</span>
-            </div>
-            <p className="text-gray-300 mb-4 max-w-md">
-              Hệ thống quản lý homestay hiện đại, mang đến trải nghiệm đặt phòng
-              tuyệt vời cho mọi chuyến du lịch của bạn.
+          {/* Company Info */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Quản Lý Homestay</h3>
+            <p className="text-gray-300 text-sm">
+              Đối tác đáng tin cậy của bạn cho chỗ ở thoải mái và giá cả phải chăng.
             </p>
-            <div className="space-y-2">
-              <div className="flex items-center text-gray-300">
-                <MapPin className="w-4 h-4 mr-2" />
-                <span className="text-sm">123 Đường ABC, Quận 1, TP.HCM</span>
-              </div>
-              <div className="flex items-center text-gray-300">
-                <Phone className="w-4 h-4 mr-2" />
-                <span className="text-sm">+84 901 234 567</span>
-              </div>
-              <div className="flex items-center text-gray-300">
-                <Mail className="w-4 h-4 mr-2" />
-                <span className="text-sm">contact@homestay.com</span>
-              </div>
-            </div>
           </div>
 
           {/* Quick Links */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Liên kết nhanh</h3>
-            <ul className="space-y-2">
+            <h4 className="text-md font-semibold mb-4">Liên Kết Nhanh</h4>
+            <ul className="space-y-2 text-sm">
               <li>
-                <Link
-                  to="/"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Trang chủ
+                <Link to="/" className="text-gray-300 hover:text-white transition-colors">
+                  Trang Chủ
                 </Link>
               </li>
               <li>
-                <Link
-                  to="/rooms"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Homestay
+                <Link to="/rooms" className="text-gray-300 hover:text-white transition-colors">
+                  Phòng
                 </Link>
               </li>
               <li>
-                <Link
-                  to="/about"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Về chúng tôi
+                <Link to="/about" className="text-gray-300 hover:text-white transition-colors">
+                  Giới Thiệu
                 </Link>
               </li>
               <li>
-                <Link
-                  to="/contact"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Liên hệ
+                <Link to="/contact" className="text-gray-300 hover:text-white transition-colors">
+                  Liên Hệ
                 </Link>
               </li>
             </ul>
@@ -79,55 +47,39 @@ const Footer = () => {
 
           {/* Support */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Hỗ trợ</h3>
-            <ul className="space-y-2">
+            <h4 className="text-md font-semibold mb-4">Hỗ Trợ</h4>
+            <ul className="space-y-2 text-sm">
               <li>
-                <Link
-                  to="/help"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Trung tâm trợ giúp
-                </Link>
+                <span className="text-gray-300">Trung Tâm Trợ Giúp</span>
               </li>
               <li>
-                <Link
-                  to="/faq"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Câu hỏi thường gặp
-                </Link>
+                <span className="text-gray-300">Chính Sách Bảo Mật</span>
               </li>
               <li>
-                <Link
-                  to="/terms"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Điều khoản sử dụng
-                </Link>
+                <span className="text-gray-300">Điều Khoản Dịch Vụ</span>
               </li>
               <li>
-                <Link
-                  to="/privacy"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Chính sách bảo mật
-                </Link>
+                <span className="text-gray-300">FAQ</span>
               </li>
             </ul>
           </div>
-        </div>
 
-        <div className="border-t border-gray-800 mt-8 pt-8">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <p className="text-gray-400 text-sm">
-              © 2025 Homestay Management System. Tất cả quyền được bảo lưu.
-            </p>
-            <div className="mt-4 md:mt-0">
-              <p className="text-gray-400 text-sm">
-                Được phát triển với ❤️ bởi Team Homestay
-              </p>
+          {/* Contact Info */}
+          <div>
+            <h4 className="text-md font-semibold mb-4">Thông Tin Liên Hệ</h4>
+            <div className="space-y-2 text-sm text-gray-300">
+              <p>Địa chỉ: 123 Phú Diễn, Nam từ liêm, Hà Nội</p>
+              <p>Điện thoại: 0886528046</p>
+              <p>Email: iezreal.com@gmail.com</p>
             </div>
           </div>
+        </div>
+
+        {/* Bottom Bar */}
+        <div className="border-t border-gray-700 mt-8 pt-6 text-center">
+          <p className="text-gray-400 text-sm">
+            &copy; {currentYear} Quản Lý Homestay. Bảo lưu mọi quyền.
+          </p>
         </div>
       </div>
     </footer>

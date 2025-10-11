@@ -1,440 +1,709 @@
-const Room = require("../models/Room");
+// Room Controller
+// Handles room management operations
+
+const { Room } = require("../models");
+const {
+  success,
+  error,
+  created,
+  notFound,
+  paginated,
+} = require("../utils/responseHelper");
 const { validationResult } = require("express-validator");
+const {
+  addCalculatedSizeToRooms,
+  addCalculatedSize,
+} = require("../utils/roomUtils");
 
-const getAllRooms = async (req, res) => {
-  try {
-    const {
-      page = 1,
-      limit = 12,
-      sort_by = "price",
-      sort_order = "asc",
-      min_price,
-      max_price,
-      room_type,
-      num_adults,
-      num_children,
-      check_in_date,
-      check_out_date,
-      wifi_required,
-      balcony_required,
-      smoking_allowed,
-      pet_allowed,
-      available_only,
-      view_type,
-      bed_type,
-    } = req.query;
+const roomController = {
+  // @desc    Get all rooms
+  // @route   GET /api/rooms
+  // @access  Public
+  getAllRooms: async (req, res, next) => {
+    try {
+      // Pagination parameters
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 12;
 
-    // Build filters object
-    const filters = {};
+      const filters = {
+        room_type: req.query.room_type,
+        status: req.query.status,
+        min_price: req.query.min_price,
+        max_price: req.query.max_price,
+        search: req.query.search,
+        sort: req.query.sort,
+        featured: req.query.featured === "true", // Check for featured flag
+      };
 
-    if (min_price) filters.minPrice = parseFloat(min_price);
-    if (max_price) filters.maxPrice = parseFloat(max_price);
-    if (room_type) filters.roomType = parseInt(room_type);
-    if (num_adults)
-      filters.maxOccupancy =
-        parseInt(num_adults) + (parseInt(num_children) || 0);
-    if (check_in_date && check_out_date) {
-      filters.checkInDate = check_in_date;
-      filters.checkOutDate = check_out_date;
+      // Use getAllWithRating if featured or rating needed
+      const result =
+        filters.featured || req.query.with_rating === "true"
+          ? await Room.getAllWithRatingPaginated(filters, page, limit)
+          : await Room.getAllPaginated(filters, page, limit);
+
+      // Add calculated size to rooms
+      if (result.rooms) {
+        result.rooms = addCalculatedSizeToRooms(result.rooms);
+      }
+
+      return success(res, result, "Rooms retrieved successfully");
+    } catch (err) {
+      next(err);
     }
-    if (wifi_required === "true") filters.wifiRequired = true;
-    if (balcony_required === "true") filters.balconyRequired = true;
-    if (smoking_allowed === "true") filters.smokingAllowed = true;
-    if (pet_allowed === "true") filters.petAllowed = true;
-    if (available_only === "true") filters.availableOnly = true;
-    if (view_type) filters.viewType = view_type;
-    if (bed_type) filters.bedType = bed_type;
+  },
 
-    // Get filtered rooms
-    let rooms;
-    if (Object.keys(filters).length > 0) {
-      rooms = await Room.searchRooms(filters);
-    } else {
-      rooms = await Room.getAllRoomsWithDetails();
+  // @desc    Get room by ID
+  // @route   GET /api/rooms/:id
+  // @access  Public
+  getRoomById: async (req, res, next) => {
+    try {
+      const { id } = req.params;
+
+      const room = await Room.findById(id);
+      if (!room) {
+        return notFound(res, "Room not found");
+      }
+
+      const roomResponse = room.toJSON();
+      const roomWithSize = addCalculatedSize(roomResponse);
+
+      return success(
+        res,
+        { room: roomWithSize },
+        "Room retrieved successfully"
+      );
+    } catch (err) {
+      next(err);
     }
+  },
 
-    // Apply sorting
-    if (sort_by) {
-      rooms.sort((a, b) => {
-        let aValue, bValue;
+  // @desc    Get available rooms for date range
+  // @route   GET /api/rooms/available
+  // @access  Public
+  getAvailableRooms: async (req, res, next) => {
+    try {
+      const { check_in, check_out, room_type, guests } = req.query;
 
-        switch (sort_by) {
-          case "price":
-            aValue = parseFloat(a.price_per_night) || 0;
-            bValue = parseFloat(b.price_per_night) || 0;
-            break;
-          case "name":
-            aValue = a.room_name || "";
-            bValue = b.room_name || "";
-            break;
-          case "type":
-            aValue = a.type_name || "";
-            bValue = b.type_name || "";
-            break;
-          case "size":
-            aValue = parseFloat(a.room_size) || 0;
-            bValue = parseFloat(b.room_size) || 0;
-            break;
-          default:
-            return 0;
-        }
+      if (!check_in || !check_out) {
+        return error(res, "Check-in and check-out dates are required", 400);
+      }
 
-        if (typeof aValue === "string") {
-          const comparison = aValue.localeCompare(bValue);
-          return sort_order === "desc" ? -comparison : comparison;
+      // Validate dates
+      const checkInDate = new Date(check_in);
+      const checkOutDate = new Date(check_out);
+
+      if (checkInDate >= checkOutDate) {
+        return error(res, "Check-out date must be after check-in date", 400);
+      }
+
+      if (checkInDate < new Date()) {
+        return error(res, "Check-in date cannot be in the past", 400);
+      }
+
+      // Parse guests parameter
+      const guestCount = guests ? parseInt(guests) : null;
+
+      const rooms = await Room.getAvailable(
+        check_in,
+        check_out,
+        room_type,
+        guestCount
+      );
+      // Handle direct database results from stored procedure
+      const roomResponses = rooms.map((room) => {
+        // If room is already a plain object from stored procedure, return as is
+        if (typeof room.toJSON === "function") {
+          return room.toJSON();
         } else {
-          return sort_order === "desc" ? bValue - aValue : aValue - bValue;
+          // Parse JSON fields if they are strings
+          return {
+            ...room,
+            amenities:
+              typeof room.amenities === "string"
+                ? JSON.parse(room.amenities)
+                : room.amenities,
+            images:
+              typeof room.images === "string"
+                ? JSON.parse(room.images)
+                : room.images,
+          };
         }
       });
-    }
 
-    // Apply pagination
-    const totalRooms = rooms.length;
-    const totalPages = Math.ceil(totalRooms / limit);
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + parseInt(limit);
-    const paginatedRooms = rooms.slice(startIndex, endIndex);
+      const roomsWithSize = addCalculatedSizeToRooms(roomResponses);
 
-    res.json({
-      success: true,
-      message: "Rooms retrieved successfully",
-      data: {
-        rooms: paginatedRooms,
-        pagination: {
-          current_page: parseInt(page),
-          total_pages: totalPages,
-          total_items: totalRooms,
-          items_per_page: parseInt(limit),
-          has_next_page: page < totalPages,
-          has_prev_page: page > 1,
+      return success(
+        res,
+        {
+          rooms: roomsWithSize,
+          filters: { check_in, check_out, room_type, guests: guestCount },
         },
-        filters: filters,
-        sort: {
-          sort_by,
-          sort_order,
+        "Available rooms retrieved successfully"
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // @desc    Get booked dates for a specific room
+  // @route   GET /api/rooms/:id/booked-dates
+  // @access  Public
+  getRoomBookedDates: async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const { start_date, end_date } = req.query;
+
+      // Check if room exists
+      const room = await Room.findById(id);
+      if (!room) {
+        return notFound(res, "Room not found");
+      }
+
+      // Set default date range if not provided (next 3 months)
+      const startDate = start_date || new Date().toISOString().split("T")[0];
+      const endDate =
+        end_date ||
+        new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0];
+
+      // Get all confirmed/checked-in bookings for this room in the date range
+      const query = `
+        SELECT 
+          check_in_date, 
+          check_out_date,
+          status
+        FROM bookings 
+        WHERE room_id = ? 
+        AND status IN ('confirmed', 'checked_in', 'pending')
+        AND (
+          (check_in_date <= ? AND check_out_date > ?) OR
+          (check_in_date >= ? AND check_in_date < ?)
+        )
+        ORDER BY check_in_date ASC
+      `;
+
+      const { executeQuery } = require("../config/database");
+      const bookings = await executeQuery(query, [
+        id,
+        endDate,
+        startDate,
+        startDate,
+        endDate,
+      ]);
+
+      // Generate array of booked dates
+      const bookedDates = [];
+      const bookedRanges = [];
+
+      bookings.forEach((booking) => {
+        const checkIn = new Date(booking.check_in_date);
+        const checkOut = new Date(booking.check_out_date);
+
+        // Add to ranges for easier processing
+        bookedRanges.push({
+          start: checkIn.toISOString().split("T")[0],
+          end: checkOut.toISOString().split("T")[0],
+          status: booking.status,
+        });
+
+        // Generate individual dates
+        const currentDate = new Date(checkIn);
+        while (currentDate < checkOut) {
+          bookedDates.push(currentDate.toISOString().split("T")[0]);
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      });
+
+      return success(
+        res,
+        {
+          room_id: parseInt(id),
+          room_info: {
+            room_number: room.room_number,
+            room_type: room.room_type,
+          },
+          date_range: {
+            start: startDate,
+            end: endDate,
+          },
+          booked_dates: [...new Set(bookedDates)].sort(), // Remove duplicates and sort
+          booked_ranges: bookedRanges,
+          total_bookings: bookings.length,
         },
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to get rooms",
-      error: error.message,
-    });
-  }
-};
-
-const getAvailableRooms = async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: "Validation errors",
-        errors: errors.array(),
-      });
+        "Room booked dates retrieved successfully"
+      );
+    } catch (err) {
+      next(err);
     }
+  },
 
-    const { checkInDate, checkOutDate } = req.query;
+  // @desc    Create new room (Admin/Staff only)
+  // @route   POST /api/rooms
+  // @access  Private/Admin/Staff
+  createRoom: async (req, res, next) => {
+    try {
+      // Check validation errors
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return error(res, "Validation failed", 400, errors.array());
+      }
 
-    if (!checkInDate || !checkOutDate) {
-      return res.status(400).json({
-        success: false,
-        message: "Check-in and check-out dates are required",
-      });
+      const {
+        room_number,
+        room_type,
+        capacity,
+        price_per_night,
+        description,
+        amenities,
+        images,
+        status,
+      } = req.body;
+
+      // Check if room number already exists
+      const existingRoom = await Room.findByRoomNumber(room_number);
+      if (existingRoom) {
+        return error(res, "Room number already exists", 409);
+      }
+
+      const roomData = {
+        room_number,
+        room_type,
+        capacity,
+        price_per_night,
+        description,
+        amenities: amenities || [],
+        images: images || [],
+        status: status || "available",
+      };
+
+      const room = await Room.create(roomData);
+      if (!room) {
+        return error(res, "Failed to create room", 500);
+      }
+
+      const roomResponse = room.toJSON();
+      return created(res, { room: roomResponse }, "Room created successfully");
+    } catch (err) {
+      next(err);
     }
+  },
 
-    const rooms = await Room.getAvailableRooms(checkInDate, checkOutDate);
+  // @desc    Update room (Admin/Staff only)
+  // @route   PUT /api/rooms/:id
+  // @access  Private/Admin/Staff
+  updateRoom: async (req, res, next) => {
+    try {
+      // Check validation errors
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return error(res, "Validation failed", 400, errors.array());
+      }
 
-    res.json({
-      success: true,
-      message: "Available rooms retrieved successfully",
-      data: {
-        rooms,
-        searchCriteria: {
-          checkInDate,
-          checkOutDate,
+      const { id } = req.params;
+      const {
+        room_number,
+        room_type,
+        capacity,
+        price_per_night,
+        description,
+        amenities,
+        images,
+        status,
+      } = req.body;
+
+      const room = await Room.findById(id);
+      if (!room) {
+        return notFound(res, "Room not found");
+      }
+
+      // Check if room number is being changed and already exists
+      if (room_number && room_number !== room.room_number) {
+        const existingRoom = await Room.findByRoomNumber(room_number);
+        if (existingRoom) {
+          return error(res, "Room number already exists", 409);
+        }
+      }
+
+      const updatedRoom = await room.update({
+        room_number,
+        room_type,
+        capacity,
+        price_per_night,
+        description,
+        amenities,
+        images,
+        status,
+      });
+
+      const roomResponse = updatedRoom.toJSON();
+      return success(res, { room: roomResponse }, "Room updated successfully");
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // @desc    Delete room (Admin only)
+  // @route   DELETE /api/rooms/:id
+  // @access  Private/Admin
+  deleteRoom: async (req, res, next) => {
+    try {
+      const { id } = req.params;
+
+      const room = await Room.findById(id);
+      if (!room) {
+        return notFound(res, "Room not found");
+      }
+
+      // Check if room has active bookings
+      const { executeQuery } = require("../config/database");
+      const bookingCheck = await executeQuery(
+        "SELECT COUNT(*) as count FROM bookings WHERE room_id = ? AND status IN ('confirmed', 'checked_in')",
+        [id]
+      );
+
+      if (bookingCheck[0].count > 0) {
+        return error(res, "Cannot delete room with active bookings", 400);
+      }
+
+      await room.delete();
+      return success(res, null, "Room deleted successfully");
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // @desc    Upload room images (Admin/Staff only)
+  // @route   POST /api/rooms/:id/images
+  // @access  Private/Admin/Staff
+  uploadRoomImages: async (req, res, next) => {
+    try {
+      const { id } = req.params;
+
+      if (!req.files || req.files.length === 0) {
+
+        return error(res, "No files uploaded", 400);
+      }
+
+      const room = await Room.findById(id);
+      if (!room) {
+
+        return notFound(res, "Room not found");
+      }
+
+      // Get current images - use toJSON() to ensure proper parsing
+      const roomJSON = room.toJSON();
+
+      const currentImages = Array.isArray(roomJSON.images)
+        ? roomJSON.images
+        : [];
+
+      // Add new image paths
+      const newImages = req.files.map(
+        (file) => `/uploads/rooms/${file.filename}`
+      );
+
+      const allImages = [...currentImages, ...newImages];
+
+      const updatedRoom = await room.update({ images: allImages });
+      const roomResponse = updatedRoom.toJSON();
+
+      return success(
+        res,
+        { room: roomResponse },
+        "Room images uploaded successfully"
+      );
+    } catch (err) {
+      console.error("❌ Upload error:", err);
+      next(err);
+    }
+  },
+
+  // @desc    Update room status (Staff only)
+  // @route   PUT /api/rooms/:id/status
+  // @access  Private/Staff/Admin
+  updateRoomStatus: async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+
+      if (!status) {
+        return error(res, "Status is required", 400);
+      }
+
+      const validStatuses = ["available", "occupied", "maintenance"];
+      if (!validStatuses.includes(status)) {
+        return error(res, "Invalid status", 400);
+      }
+
+      const room = await Room.findById(id);
+      if (!room) {
+        return notFound(res, "Room not found");
+      }
+
+      const updatedRoom = await room.updateStatus(status);
+      const roomResponse = updatedRoom.toJSON();
+
+      return success(
+        res,
+        { room: roomResponse },
+        "Room status updated successfully"
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // @desc    Get room statistics (Admin/Staff only)
+  // @route   GET /api/rooms/stats
+  // @access  Private/Admin/Staff
+  getRoomStats: async (req, res, next) => {
+    try {
+      const { executeQuery } = require("../config/database");
+
+      const query = `
+        SELECT 
+          COUNT(*) as total_rooms,
+          COUNT(CASE WHEN status = 'available' THEN 1 END) as available_rooms,
+          COUNT(CASE WHEN status = 'occupied' THEN 1 END) as occupied_rooms,
+          COUNT(CASE WHEN status = 'maintenance' THEN 1 END) as maintenance_rooms,
+          COUNT(CASE WHEN room_type = 'single' THEN 1 END) as single_rooms,
+          COUNT(CASE WHEN room_type = 'double' THEN 1 END) as double_rooms,
+          COUNT(CASE WHEN room_type = 'suite' THEN 1 END) as suite_rooms,
+          COUNT(CASE WHEN room_type = 'family' THEN 1 END) as family_rooms,
+          AVG(price_per_night) as avg_price,
+          MIN(price_per_night) as min_price,
+          MAX(price_per_night) as max_price,
+          SUM(capacity) as total_capacity
+        FROM rooms
+      `;
+
+      const result = await executeQuery(query);
+      const stats = result[0];
+
+      // Calculate occupancy rate
+      const occupancyRate =
+        stats.total_rooms > 0
+          ? ((stats.occupied_rooms / stats.total_rooms) * 100).toFixed(2)
+          : 0;
+
+      stats.occupancy_rate = parseFloat(occupancyRate);
+
+      return success(res, { stats }, "Room statistics retrieved successfully");
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // @desc    Search rooms
+  // @route   GET /api/rooms/search
+  // @access  Public
+  searchRooms: async (req, res, next) => {
+    try {
+      const { query, room_type, min_price, max_price, capacity, amenities } =
+        req.query;
+
+      if (!query) {
+        return error(res, "Search query is required", 400);
+      }
+
+      const { executeQuery } = require("../config/database");
+
+      let searchQuery = `
+        SELECT * FROM rooms 
+        WHERE (room_number LIKE ? OR description LIKE ?)
+      `;
+
+      const searchTerm = `%${query}%`;
+      const queryParams = [searchTerm, searchTerm];
+
+      // Apply filters
+      if (room_type) {
+        searchQuery += " AND room_type = ?";
+        queryParams.push(room_type);
+      }
+
+      if (min_price) {
+        searchQuery += " AND price_per_night >= ?";
+        queryParams.push(min_price);
+      }
+
+      if (max_price) {
+        searchQuery += " AND price_per_night <= ?";
+        queryParams.push(max_price);
+      }
+
+      if (capacity) {
+        searchQuery += " AND capacity >= ?";
+        queryParams.push(capacity);
+      }
+
+      if (amenities) {
+        // Search in amenities JSON field
+        const amenityList = amenities.split(",");
+        for (const amenity of amenityList) {
+          searchQuery += " AND JSON_SEARCH(amenities, 'one', ?) IS NOT NULL";
+          queryParams.push(amenity.trim());
+        }
+      }
+
+      searchQuery += " ORDER BY price_per_night ASC";
+
+      const rooms = await executeQuery(searchQuery, queryParams);
+      const roomObjects = rooms.map((roomData) => new Room(roomData));
+      const roomResponses = roomObjects.map((room) => room.toJSON());
+      const roomsWithSize = addCalculatedSizeToRooms(roomResponses);
+
+      return success(
+        res,
+        {
+          rooms: roomsWithSize,
+          search_params: {
+            query,
+            room_type,
+            min_price,
+            max_price,
+            capacity,
+            amenities,
+          },
         },
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to get available rooms",
-      error: error.message,
-    });
-  }
-};
-
-const getRoomById = async (req, res) => {
-  try {
-    const { roomId } = req.params;
-
-    const room = await Room.findByIdWithDetails(roomId);
-    if (!room) {
-      return res.status(404).json({
-        success: false,
-        message: "Room not found",
-      });
+        "Search results retrieved successfully"
+      );
+    } catch (err) {
+      next(err);
     }
+  },
 
-    res.json({
-      success: true,
-      message: "Room retrieved successfully",
-      data: {
-        room,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to get room",
-      error: error.message,
-    });
-  }
-};
+  // @desc    Get room reviews
+  // @route   GET /api/rooms/:id/reviews
+  // @access  Public
+  getRoomReviews: async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const roomId = parseInt(id);
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
 
-const getRoomsByType = async (req, res) => {
-  try {
-    const { roomTypeId } = req.params;
+      const room = await Room.findById(roomId);
+      if (!room) {
+        return notFound(res, "Room not found");
+      }
 
-    const rooms = await Room.getRoomsByType(roomTypeId);
+      const { Review } = require("../models");
+      const result = await Review.getByRoomId(roomId, page, limit);
 
-    res.json({
-      success: true,
-      message: "Rooms by type retrieved successfully",
-      data: {
-        rooms,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to get rooms by type",
-      error: error.message,
-    });
-  }
-};
-
-const getRoomTypes = async (req, res) => {
-  try {
-    const roomTypes = await Room.getRoomTypes();
-
-    res.json({
-      success: true,
-      message: "Room types retrieved successfully",
-      data: {
-        roomTypes,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to get room types",
-      error: error.message,
-    });
-  }
-};
-
-const searchRooms = async (req, res) => {
-  try {
-    const {
-      checkInDate,
-      checkOutDate,
-      minPrice,
-      maxPrice,
-      roomType,
-      maxOccupancy,
-    } = req.query;
-
-    const filters = {
-      checkInDate,
-      checkOutDate,
-      minPrice: minPrice ? parseFloat(minPrice) : null,
-      maxPrice: maxPrice ? parseFloat(maxPrice) : null,
-      roomType: roomType ? parseInt(roomType) : null,
-      maxOccupancy: maxOccupancy ? parseInt(maxOccupancy) : null,
-    };
-
-    const rooms = await Room.searchRooms(filters);
-
-    res.json({
-      success: true,
-      message: "Room search completed successfully",
-      data: {
-        rooms,
-        searchCriteria: filters,
-        totalResults: rooms.length,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to search rooms",
-      error: error.message,
-    });
-  }
-};
-
-const checkAvailability = async (req, res) => {
-  try {
-    const { roomId } = req.params;
-    const { checkInDate, checkOutDate } = req.query;
-
-    if (!checkInDate || !checkOutDate) {
-      return res.status(400).json({
-        success: false,
-        message: "Check-in and check-out dates are required",
-      });
-    }
-
-    const isAvailable = await Room.checkAvailability(
-      roomId,
-      checkInDate,
-      checkOutDate
-    );
-
-    res.json({
-      success: true,
-      message: "Availability check completed",
-      data: {
-        roomId: parseInt(roomId),
-        checkInDate,
-        checkOutDate,
-        isAvailable,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to check availability",
-      error: error.message,
-    });
-  }
-};
-
-const getRoomPricing = async (req, res) => {
-  try {
-    const { roomId } = req.params;
-    const {
-      checkInDate,
-      checkOutDate,
-      num_adults = 1,
-      num_children = 0,
-    } = req.query;
-
-    // Mock pricing calculation - replace with actual logic
-    const room = await Room.findById(roomId);
-    if (!room) {
-      return res.status(404).json({
-        success: false,
-        message: "Room not found",
-      });
-    }
-
-    // Calculate nights - fix timezone issues
-    const checkIn = new Date(checkInDate + 'T00:00:00');
-    const checkOut = new Date(checkOutDate + 'T00:00:00');
-    const timeDiff = checkOut.getTime() - checkIn.getTime();
-    const nights = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-
-    console.log('Date calculation:', {
-      checkInDate,
-      checkOutDate,
-      checkIn: checkIn.toISOString(),
-      checkOut: checkOut.toISOString(),
-      timeDiff,
-      nights
-    });
-
-    if (nights <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid date range. Check-in: ${checkInDate}, Check-out: ${checkOutDate}, Nights: ${nights}`,
-      });
-    }
-
-    // Mock pricing calculation
-    const basePrice = parseFloat(room.base_price);
-    const subtotal = basePrice * nights;
-    const taxes = subtotal * 0.1; // 10% tax
-    const serviceFee = subtotal * 0.05; // 5% service fee
-    const finalAmount = subtotal + taxes + serviceFee;
-
-    res.json({
-      success: true,
-      message: "Pricing calculated successfully",
-      data: {
-        roomId: parseInt(roomId),
-        checkInDate,
-        checkOutDate,
-        nights,
-        basePrice,
-        subtotal,
-        taxes,
-        serviceFee,
-        finalAmount,
-        guests: {
-          adults: parseInt(num_adults),
-          children: parseInt(num_children),
+      return paginated(
+        res,
+        result.reviews,
+        {
+          page: result.page,
+          totalPages: result.totalPages,
+          total: result.total,
+          limit,
         },
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to calculate pricing",
-      error: error.message,
-    });
-  }
-};
-
-const getSimilarRooms = async (req, res) => {
-  try {
-    const { roomId } = req.params;
-    const { limit = 4 } = req.query;
-
-    // Get the current room to find similar ones
-    const currentRoom = await Room.findById(roomId);
-    if (!currentRoom) {
-      return res.status(404).json({
-        success: false,
-        message: "Room not found",
-      });
+        "Room reviews retrieved successfully"
+      );
+    } catch (err) {
+      next(err);
     }
+  },
 
-    // Mock similar rooms logic - get rooms of same type, excluding current room
-    const similarRooms = await Room.getSimilarRooms(
-      roomId,
-      currentRoom.type_id,
-      parseInt(limit)
-    );
+  // @desc    Get room bookings (Admin/Staff only)
+  // @route   GET /api/rooms/:id/bookings
+  // @access  Private/Admin/Staff
+  getRoomBookings: async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
 
-    res.json({
-      success: true,
-      message: "Similar rooms retrieved successfully",
-      data: {
-        rooms: similarRooms,
-        total: similarRooms.length,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to get similar rooms",
-      error: error.message,
-    });
-  }
+      const room = await Room.findById(id);
+      if (!room) {
+        return notFound(res, "Room not found");
+      }
+
+      const { Booking } = require("../models");
+      const filters = { room_id: id };
+      const result = await Booking.getAll(filters, page, limit);
+
+      return paginated(
+        res,
+        result.bookings,
+        {
+          page: result.page,
+          totalPages: result.totalPages,
+          total: result.total,
+          limit,
+        },
+        "Room bookings retrieved successfully"
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // @desc    Get room types
+  // @route   GET /api/rooms/types
+  // @access  Public
+  getRoomTypes: async (req, res, next) => {
+    try {
+      const { executeQuery } = require("../config/database");
+
+      const query = `
+        SELECT 
+          room_type,
+          COUNT(*) as room_count,
+          AVG(price_per_night) as avg_price,
+          MIN(price_per_night) as min_price,
+          MAX(price_per_night) as max_price,
+          AVG(capacity) as avg_capacity
+        FROM rooms
+        GROUP BY room_type
+        ORDER BY room_type ASC
+      `;
+
+      const roomTypes = await executeQuery(query);
+
+      return success(
+        res,
+        { room_types: roomTypes },
+        "Room types retrieved successfully"
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // @desc    Get room statistics (Admin/Staff only)
+  // @route   GET /api/rooms/stats
+  // @access  Private/Admin/Staff
+  getRoomStatistics: async (req, res, next) => {
+    try {
+      const { executeQuery } = require("../config/database");
+
+      const stats = await executeQuery(`
+        SELECT 
+          COUNT(*) as total_rooms,
+          COUNT(CASE WHEN status = 'available' THEN 1 END) as available_rooms,
+          COUNT(CASE WHEN status = 'occupied' THEN 1 END) as occupied_rooms,
+          COUNT(CASE WHEN status = 'maintenance' THEN 1 END) as maintenance_rooms,
+          AVG(price_per_night) as average_price,
+          COUNT(CASE WHEN room_type = 'single' THEN 1 END) as single_rooms,
+          COUNT(CASE WHEN room_type = 'double' THEN 1 END) as double_rooms,
+          COUNT(CASE WHEN room_type = 'suite' THEN 1 END) as suite_rooms,
+          COUNT(CASE WHEN room_type = 'family' THEN 1 END) as family_rooms
+        FROM rooms
+      `);
+
+      return success(
+        res,
+        { statistics: stats[0] },
+        "Room statistics retrieved successfully"
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
 };
 
-module.exports = {
-  getAllRooms,
-  getAvailableRooms,
-  getRoomById,
-  getRoomsByType,
-  getRoomTypes,
-  searchRooms,
-  checkAvailability,
-  getRoomPricing,
-  getSimilarRooms,
-};
+module.exports = roomController;

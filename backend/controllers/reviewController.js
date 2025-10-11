@@ -1,508 +1,435 @@
-const Review = require("../models/Review");
-const Booking = require("../models/Booking");
+// Review Controller
+// Handles review and rating system
+
+const { Review, Booking } = require("../models");
+const {
+  success,
+  error,
+  created,
+  notFound,
+  paginated,
+  forbidden,
+} = require("../utils/responseHelper");
 const { validationResult } = require("express-validator");
 
-/**
- * Create a new review
- * @route POST /api/reviews
- */
-const createReview = async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: "Validation errors",
-        errors: errors.array(),
-      });
+const reviewController = {
+  // @desc    Get all reviews
+  // @route   GET /api/reviews
+  // @access  Public
+  getAllReviews: async (req, res, next) => {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+
+      const filters = {
+        rating: req.query.rating,
+        min_rating: req.query.min_rating,
+        user_id: req.query.user_id,
+        room_id: req.query.room_id,
+        room_type: req.query.room_type,
+        search: req.query.search,
+      };
+
+      const result = await Review.getAll(filters, page, limit);
+
+      return paginated(
+        res,
+        result.reviews,
+        {
+          page: result.page,
+          totalPages: result.totalPages,
+          total: result.total,
+          limit,
+        },
+        "Reviews retrieved successfully"
+      );
+    } catch (err) {
+      next(err);
     }
+  },
 
-    const customer_id = req.customer.customer_id;
-    const {
-      booking_id,
-      room_id,
-      rating,
-      cleanliness_rating,
-      service_rating,
-      location_rating,
-      value_rating,
-      amenities_rating,
-      title,
-      comment,
-      pros,
-      cons,
-      images,
-    } = req.body;
+  // @desc    Get review by ID
+  // @route   GET /api/reviews/:id
+  // @access  Public
+  getReviewById: async (req, res, next) => {
+    try {
+      const { id } = req.params;
 
-    // Verify booking belongs to customer and is completed
-    const booking = await Booking.findById(booking_id);
-    if (!booking) {
-      return res.status(404).json({
-        success: false,
-        message: "Booking not found",
-      });
+      const review = await Review.findById(id);
+      if (!review) {
+        return notFound(res, "Review not found");
+      }
+
+      const reviewResponse = review.toJSON();
+      return success(
+        res,
+        { review: reviewResponse },
+        "Review retrieved successfully"
+      );
+    } catch (err) {
+      next(err);
     }
+  },
 
-    if (booking.customer_id !== customer_id) {
-      return res.status(403).json({
-        success: false,
-        message: "You can only review your own bookings",
-      });
+  // @desc    Create new review
+  // @route   POST /api/reviews
+  // @access  Private
+  createReview: async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return error(res, "Validation failed", 400, errors.array());
+      }
+
+      const { booking_id, rating, comment } = req.body;
+
+      // Validate rating
+      if (rating < 1 || rating > 5) {
+        return error(res, "Rating must be between 1 and 5", 400);
+      }
+
+      // Check if booking exists and belongs to user
+      const booking = await Booking.findById(booking_id);
+      if (!booking) {
+        return notFound(res, "Booking not found");
+      }
+
+      if (booking.user_id !== req.user.id) {
+        return forbidden(res, "You can only review your own bookings");
+      }
+
+      // Check if booking is completed
+      if (booking.status !== "checked_out") {
+        return error(res, "You can only review completed bookings", 400);
+      }
+
+      // Check if review already exists
+      const existingReview = await Review.findByBookingId(booking_id);
+      if (existingReview) {
+        return error(res, "Review already exists for this booking", 409);
+      }
+
+      const reviewData = {
+        booking_id,
+        user_id: req.user.id,
+        rating,
+        comment: comment || null,
+      };
+
+      const review = await Review.create(reviewData);
+      const reviewResponse = review.toJSON();
+
+      return created(
+        res,
+        { review: reviewResponse },
+        "Review created successfully"
+      );
+    } catch (err) {
+      next(err);
     }
+  },
 
-    if (
-      booking.booking_status !== "checked_out" &&
-      booking.booking_status !== "completed"
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "You can only review completed stays",
+  // @desc    Update review
+  // @route   PUT /api/reviews/:id
+  // @access  Private (own review)
+  updateReview: async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return error(res, "Validation failed", 400, errors.array());
+      }
+
+      const { id } = req.params;
+      const { rating, comment } = req.body;
+
+      const review = await Review.findById(id);
+      if (!review) {
+        return notFound(res, "Review not found");
+      }
+
+      // Check if user owns this review
+      if (review.user_id !== req.user.id) {
+        return forbidden(res, "You can only update your own reviews");
+      }
+
+      // Check if review can be edited (within 24 hours)
+      if (!review.canBeEdited()) {
+        return error(
+          res,
+          "Review can only be edited within 24 hours of creation",
+          400
+        );
+      }
+
+      // Validate rating if provided
+      if (rating && (rating < 1 || rating > 5)) {
+        return error(res, "Rating must be between 1 and 5", 400);
+      }
+
+      const updatedReview = await review.update({
+        rating,
+        comment,
       });
+
+      const reviewResponse = updatedReview.toJSON();
+      return success(
+        res,
+        { review: reviewResponse },
+        "Review updated successfully"
+      );
+    } catch (err) {
+      next(err);
     }
+  },
 
-    // Check if review already exists for this booking
-    const existingReview = await Review.findByBookingId(booking_id);
-    if (existingReview) {
-      return res.status(409).json({
-        success: false,
-        message: "Review already exists for this booking",
-      });
+  // @desc    Delete review
+  // @route   DELETE /api/reviews/:id
+  // @access  Private (own review) / Admin
+  deleteReview: async (req, res, next) => {
+    try {
+      const { id } = req.params;
+
+      const review = await Review.findById(id);
+      if (!review) {
+        return notFound(res, "Review not found");
+      }
+
+      // Check if user can delete this review
+      if (req.user.role !== "admin" && review.user_id !== req.user.id) {
+        return forbidden(res, "Access denied");
+      }
+
+      await review.delete();
+      return success(res, null, "Review deleted successfully");
+    } catch (err) {
+      next(err);
     }
+  },
 
-    const reviewData = {
-      booking_id,
-      customer_id,
-      room_id,
-      rating,
-      cleanliness_rating,
-      service_rating,
-      location_rating,
-      value_rating,
-      amenities_rating,
-      title,
-      comment,
-      pros,
-      cons,
-      images,
-    };
+  // @desc    Get reviews by user ID
+  // @route   GET /api/reviews/user/:user_id
+  // @access  Public
+  getReviewsByUserId: async (req, res, next) => {
+    try {
+      const { user_id } = req.params;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
 
-    const review = await Review.create(reviewData);
+      const result = await Review.getByUserId(user_id, page, limit);
 
-    res.status(201).json({
-      success: true,
-      message: "Review created successfully",
-      data: { review },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to create review",
-      error: error.message,
-    });
-  }
+      return paginated(
+        res,
+        result.reviews,
+        {
+          page: result.page,
+          totalPages: result.totalPages,
+          total: result.total,
+          limit,
+        },
+        "User reviews retrieved successfully"
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // @desc    Get reviews by room ID
+  // @route   GET /api/reviews/room/:room_id
+  // @access  Public
+  getReviewsByRoomId: async (req, res, next) => {
+    try {
+      const { room_id } = req.params;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+
+      const result = await Review.getByRoomId(room_id, page, limit);
+
+      return paginated(
+        res,
+        result.reviews,
+        {
+          page: result.page,
+          totalPages: result.totalPages,
+          total: result.total,
+          limit,
+        },
+        "Room reviews retrieved successfully"
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // @desc    Get user's reviews
+  // @route   GET /api/reviews/my-reviews
+  // @access  Private
+  getMyReviews: async (req, res, next) => {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+
+      const result = await Review.getByUserId(req.user.id, page, limit);
+
+      return paginated(
+        res,
+        result.reviews,
+        {
+          page: result.page,
+          totalPages: result.totalPages,
+          total: result.total,
+          limit,
+        },
+        "Your reviews retrieved successfully"
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // @desc    Get review statistics
+  // @route   GET /api/reviews/stats
+  // @access  Public
+  getReviewStats: async (req, res, next) => {
+    try {
+      const filters = {
+        room_id: req.query.room_id,
+        room_type: req.query.room_type,
+        start_date: req.query.start_date,
+        end_date: req.query.end_date,
+      };
+
+      const stats = await Review.getStatistics(filters);
+
+      return success(
+        res,
+        { stats },
+        "Review statistics retrieved successfully"
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // @desc    Get room average rating
+  // @route   GET /api/reviews/room/:room_id/average
+  // @access  Public
+  getRoomAverageRating: async (req, res, next) => {
+    try {
+      const { room_id } = req.params;
+
+      const ratingData = await Review.getRoomAverageRating(room_id);
+
+      return success(
+        res,
+        {
+          room_id: parseInt(room_id),
+          ...ratingData,
+        },
+        "Room average rating retrieved successfully"
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // @desc    Get recent reviews
+  // @route   GET /api/reviews/recent
+  // @access  Public
+  getRecentReviews: async (req, res, next) => {
+    try {
+      const limit = parseInt(req.query.limit) || 5;
+
+      const reviews = await Review.getRecentReviews(limit);
+      const reviewResponses = reviews.map((review) => review.toJSON());
+
+      return success(
+        res,
+        { reviews: reviewResponses },
+        "Recent reviews retrieved successfully"
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // @desc    Get top rated reviews
+  // @route   GET /api/reviews/top-rated
+  // @access  Public
+  getTopRatedReviews: async (req, res, next) => {
+    try {
+      const limit = parseInt(req.query.limit) || 5;
+
+      const reviews = await Review.getTopRatedReviews(limit);
+      const reviewResponses = reviews.map((review) => review.toJSON());
+
+      return success(
+        res,
+        { reviews: reviewResponses },
+        "Top rated reviews retrieved successfully"
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // @desc    Check if user can review booking
+  // @route   GET /api/reviews/can-review/:booking_id
+  // @access  Private
+  canReviewBooking: async (req, res, next) => {
+    try {
+      const { booking_id } = req.params;
+
+      // Check if booking exists and belongs to user
+      const booking = await Booking.findById(booking_id);
+      if (!booking) {
+        return notFound(res, "Booking not found");
+      }
+
+      if (booking.user_id !== req.user.id) {
+        return forbidden(res, "Access denied");
+      }
+
+      // Check conditions for reviewing
+      const canReview = booking.status === "checked_out";
+      const existingReview = await Review.findByBookingId(booking_id);
+      const hasExistingReview = !!existingReview;
+
+      return success(
+        res,
+        {
+          can_review: canReview && !hasExistingReview,
+          reasons: {
+            booking_completed: booking.status === "checked_out",
+            no_existing_review: !hasExistingReview,
+            booking_status: booking.status,
+          },
+        },
+        "Review eligibility checked"
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // @desc    Get random testimonials for homepage
+  // @route   GET /api/reviews/testimonials
+  // @access  Public
+  getRandomTestimonials: async (req, res, next) => {
+    try {
+      const count = parseInt(req.query.count) || 3;
+      const testimonials = await Review.getRandomTestimonials(count);
+      return success(
+        res,
+        { testimonials },
+        "Random testimonials retrieved successfully"
+      );
+    } catch (err) {
+      next(err);
+    }
+  },
 };
 
-/**
- * Get review by ID
- * @route GET /api/reviews/:id
- */
-const getReviewById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const review = await Review.findByIdWithDetails(id);
+// Merge placeholder methods
+Object.assign(reviewController, require("./placeholders"));
 
-    if (!review) {
-      return res.status(404).json({
-        success: false,
-        message: "Review not found",
-      });
-    }
-
-    res.json({
-      success: true,
-      message: "Review retrieved successfully",
-      data: { review },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to get review",
-      error: error.message,
-    });
-  }
-};
-
-/**
- * Get reviews for a room
- * @route GET /api/rooms/:roomId/reviews
- */
-const getRoomReviews = async (req, res) => {
-  try {
-    const { roomId } = req.params;
-    const {
-      page = 1,
-      limit = 10,
-      sort_by = "created_at",
-      sort_order = "desc",
-      min_rating,
-      status = "approved",
-    } = req.query;
-
-    const filters = {
-      room_id: roomId,
-      status,
-      min_rating: min_rating ? parseFloat(min_rating) : null,
-      page: parseInt(page),
-      limit: parseInt(limit),
-      sortBy: sort_by,
-      sortOrder: sort_order,
-    };
-
-    const result = await Review.getByRoomId(filters);
-
-    res.json({
-      success: true,
-      message: "Room reviews retrieved successfully",
-      data: result,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to get room reviews",
-      error: error.message,
-    });
-  }
-};
-
-/**
- * Get customer reviews
- * @route GET /api/customers/reviews
- */
-const getCustomerReviews = async (req, res) => {
-  try {
-    const customer_id = req.customer.customer_id;
-    const {
-      page = 1,
-      limit = 10,
-      sort_by = "created_at",
-      sort_order = "desc",
-      status,
-    } = req.query;
-
-    const filters = {
-      customer_id,
-      status,
-      page: parseInt(page),
-      limit: parseInt(limit),
-      sortBy: sort_by,
-      sortOrder: sort_order,
-    };
-
-    const result = await Review.getByCustomerId(filters);
-
-    res.json({
-      success: true,
-      message: "Customer reviews retrieved successfully",
-      data: result,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to get customer reviews",
-      error: error.message,
-    });
-  }
-};
-
-/**
- * Update review (Customer can only update their own)
- * @route PUT /api/reviews/:id
- */
-const updateReview = async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: "Validation errors",
-        errors: errors.array(),
-      });
-    }
-
-    const { id } = req.params;
-    const customer_id = req.customer.customer_id;
-
-    const review = await Review.findById(id);
-    if (!review) {
-      return res.status(404).json({
-        success: false,
-        message: "Review not found",
-      });
-    }
-
-    if (review.customer_id !== customer_id) {
-      return res.status(403).json({
-        success: false,
-        message: "You can only update your own reviews",
-      });
-    }
-
-    // Check if review is still editable (within 7 days and not responded by admin)
-    const reviewDate = new Date(review.created_at);
-    const now = new Date();
-    const daysDiff = (now - reviewDate) / (1000 * 60 * 60 * 24);
-
-    if (daysDiff > 7 || review.admin_response) {
-      return res.status(400).json({
-        success: false,
-        message: "Review can no longer be edited",
-      });
-    }
-
-    const updateData = req.body;
-    const updatedReview = await Review.update(id, updateData);
-
-    res.json({
-      success: true,
-      message: "Review updated successfully",
-      data: { review: updatedReview },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to update review",
-      error: error.message,
-    });
-  }
-};
-
-/**
- * Delete review (Customer can only delete their own)
- * @route DELETE /api/reviews/:id
- */
-const deleteReview = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const customer_id = req.customer.customer_id;
-
-    const review = await Review.findById(id);
-    if (!review) {
-      return res.status(404).json({
-        success: false,
-        message: "Review not found",
-      });
-    }
-
-    if (review.customer_id !== customer_id) {
-      return res.status(403).json({
-        success: false,
-        message: "You can only delete your own reviews",
-      });
-    }
-
-    await Review.delete(id);
-
-    res.json({
-      success: true,
-      message: "Review deleted successfully",
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to delete review",
-      error: error.message,
-    });
-  }
-};
-
-/**
- * Mark review as helpful
- * @route POST /api/reviews/:id/helpful
- */
-const markHelpful = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const customer_id = req.customer.customer_id;
-
-    const review = await Review.findById(id);
-    if (!review) {
-      return res.status(404).json({
-        success: false,
-        message: "Review not found",
-      });
-    }
-
-    if (review.customer_id === customer_id) {
-      return res.status(400).json({
-        success: false,
-        message: "You cannot mark your own review as helpful",
-      });
-    }
-
-    await Review.incrementHelpfulCount(id);
-
-    res.json({
-      success: true,
-      message: "Review marked as helpful",
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to mark review as helpful",
-      error: error.message,
-    });
-  }
-};
-
-/**
- * Get review statistics for a room
- * @route GET /api/rooms/:roomId/reviews/statistics
- */
-const getRoomReviewStatistics = async (req, res) => {
-  try {
-    const { roomId } = req.params;
-
-    const statistics = await Review.getRoomStatistics(roomId);
-
-    res.json({
-      success: true,
-      message: "Room review statistics retrieved successfully",
-      data: statistics,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to get room review statistics",
-      error: error.message,
-    });
-  }
-};
-
-// ===============================================
-// ADMIN ONLY FUNCTIONS
-// ===============================================
-
-/**
- * Get all reviews for admin management
- * @route GET /api/admin/reviews
- */
-const getAllReviewsForAdmin = async (req, res) => {
-  try {
-    const {
-      page = 1,
-      limit = 20,
-      status,
-      room_id,
-      customer_id,
-      min_rating,
-      sort_by = "created_at",
-      sort_order = "desc",
-    } = req.query;
-
-    const filters = {
-      status,
-      room_id: room_id ? parseInt(room_id) : null,
-      customer_id: customer_id ? parseInt(customer_id) : null,
-      min_rating: min_rating ? parseFloat(min_rating) : null,
-      page: parseInt(page),
-      limit: parseInt(limit),
-      sortBy: sort_by,
-      sortOrder: sort_order,
-    };
-
-    const result = await Review.getAllWithFilters(filters);
-
-    res.json({
-      success: true,
-      message: "Reviews retrieved successfully",
-      data: result,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to get reviews",
-      error: error.message,
-    });
-  }
-};
-
-/**
- * Update review status (Admin only)
- * @route PUT /api/admin/reviews/:id/status
- */
-const updateReviewStatus = async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: "Validation errors",
-        errors: errors.array(),
-      });
-    }
-
-    const { id } = req.params;
-    const { status, admin_response } = req.body;
-
-    const review = await Review.findById(id);
-    if (!review) {
-      return res.status(404).json({
-        success: false,
-        message: "Review not found",
-      });
-    }
-
-    const updatedReview = await Review.updateStatus(id, status, admin_response);
-
-    res.json({
-      success: true,
-      message: "Review status updated successfully",
-      data: { review: updatedReview },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to update review status",
-      error: error.message,
-    });
-  }
-};
-
-/**
- * Get review analytics (Admin only)
- * @route GET /api/admin/reviews/analytics
- */
-const getReviewAnalytics = async (req, res) => {
-  try {
-    const { timeframe = "30d" } = req.query;
-
-    const analytics = await Review.getAnalytics(timeframe);
-
-    res.json({
-      success: true,
-      message: "Review analytics retrieved successfully",
-      data: analytics,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to get review analytics",
-      error: error.message,
-    });
-  }
-};
-
-module.exports = {
-  createReview,
-  getReviewById,
-  getRoomReviews,
-  getCustomerReviews,
-  updateReview,
-  deleteReview,
-  markHelpful,
-  getRoomReviewStatistics,
-  // Admin functions
-  getAllReviewsForAdmin,
-  updateReviewStatus,
-  getReviewAnalytics,
-};
+module.exports = reviewController;

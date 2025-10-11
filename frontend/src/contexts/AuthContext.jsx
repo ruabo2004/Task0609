@@ -1,405 +1,349 @@
-import React, {
-  createContext,
-  useContext,
-  useReducer,
-  useEffect,
-  useCallback,
-} from "react";
-import authService from "@services/authService";
-import { showToast } from "@components/Common/Toast";
-import { SUCCESS_MESSAGES, ERROR_MESSAGES } from "@utils/constants";
+import { createContext, useContext, useReducer, useEffect } from 'react';
+import { apiService, setAuthToken } from '@/services/api';
+import { getDashboardPath } from '@/utils/navigation';
 
-/**
- * Authentication Context
- * Manages global authentication state and provides auth methods
- */
+// Create Auth Context
+const AuthContext = createContext();
 
-// Initial auth state
-const initialState = {
-  user: null,
-  token: null,
-  isAuthenticated: false,
-  isLoading: true,
-  isInitialized: false,
-  error: null,
-};
-
-// Auth action types
-const AUTH_ACTIONS = {
-  INITIALIZE: "INITIALIZE",
-  LOGIN_START: "LOGIN_START",
-  LOGIN_SUCCESS: "LOGIN_SUCCESS",
-  LOGIN_FAILURE: "LOGIN_FAILURE",
-  LOGOUT: "LOGOUT",
-  UPDATE_PROFILE: "UPDATE_PROFILE",
-  CLEAR_ERROR: "CLEAR_ERROR",
-  SET_LOADING: "SET_LOADING",
-};
+// Export AuthContext for direct usage if needed
+export { AuthContext };
 
 // Auth reducer
 const authReducer = (state, action) => {
   switch (action.type) {
-    case AUTH_ACTIONS.INITIALIZE:
+    case 'LOADING':
+      return { ...state, loading: true };
+    case 'LOGIN_SUCCESS':
       return {
         ...state,
-        user: action.payload.user,
-        token: action.payload.token,
-        isAuthenticated: !!(action.payload.user && action.payload.token),
-        isLoading: false,
-        isInitialized: true,
-        error: null,
-      };
-
-    case AUTH_ACTIONS.LOGIN_START:
-      return {
-        ...state,
-        isLoading: true,
-        error: null,
-      };
-
-    case AUTH_ACTIONS.LOGIN_SUCCESS:
-      return {
-        ...state,
+        loading: false,
         user: action.payload.user,
         token: action.payload.token,
         isAuthenticated: true,
-        isLoading: false,
-        error: null,
       };
-
-    case AUTH_ACTIONS.LOGIN_FAILURE:
+    case 'LOGOUT':
       return {
         ...state,
+        loading: false,
         user: null,
         token: null,
         isAuthenticated: false,
-        isLoading: false,
-        error: action.payload.error,
       };
-
-    case AUTH_ACTIONS.LOGOUT:
+    case 'AUTH_ERROR':
       return {
         ...state,
+        loading: false,
         user: null,
         token: null,
         isAuthenticated: false,
-        error: null,
+        error: action.payload,
       };
-
-    case AUTH_ACTIONS.UPDATE_PROFILE:
-      return {
-        ...state,
-        user: action.payload.user,
-      };
-
-    case AUTH_ACTIONS.CLEAR_ERROR:
-      return {
-        ...state,
-        error: null,
-      };
-
-    case AUTH_ACTIONS.SET_LOADING:
-      return {
-        ...state,
-        isLoading: action.payload.loading,
-      };
-
     default:
       return state;
   }
 };
 
-// Create contexts
-const AuthContext = createContext();
-const AuthDispatchContext = createContext();
-
-/**
- * Custom hook to use auth context
- */
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within AuthProvider");
-  }
-  return context;
+// Initial state
+const initialState = {
+  user: null,
+  token: null,
+  isAuthenticated: false,
+  loading: true,
+  error: null,
 };
 
-/**
- * Custom hook to use auth dispatch
- */
-export const useAuthDispatch = () => {
-  const context = useContext(AuthDispatchContext);
-  if (!context) {
-    throw new Error("useAuthDispatch must be used within AuthProvider");
-  }
-  return context;
-};
-
-/**
- * AuthProvider Component
- */
+// Auth Provider Component
 export const AuthProvider = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
-  // Initialize authentication on mount
+  // Check for existing token and validate with server
   useEffect(() => {
-    let isMounted = true;
-
     const initializeAuth = async () => {
-      try {
-        // Check if user is already authenticated
-        if (authService.isAuthenticated() && !authService.isTokenExpired()) {
-          const user = authService.getCurrentUser();
-          const token = authService.getToken();
-
-          if (isMounted) {
+      const token = localStorage.getItem('homestay_token');
+      const userData = localStorage.getItem('homestay_user');
+      
+      if (token) {
+        // First, try to use cached user data to avoid immediate logout
+        if (userData) {
+          try {
+            const user = JSON.parse(userData);
             dispatch({
-              type: AUTH_ACTIONS.INITIALIZE,
+              type: 'LOGIN_SUCCESS',
               payload: { user, token },
             });
-          }
-
-          // Optionally refresh user profile from server
-          try {
-            const refreshedUser = await authService.getProfile();
-            if (isMounted) {
-              dispatch({
-                type: AUTH_ACTIONS.UPDATE_PROFILE,
-                payload: { user: refreshedUser },
-              });
-            }
-          } catch (refreshError) {
-            // If refresh fails, keep existing user data
-            console.warn("Failed to refresh user profile:", refreshError);
-          }
-        } else {
-          // Not authenticated or token expired
-          if (isMounted) {
-            dispatch({
-              type: AUTH_ACTIONS.INITIALIZE,
-              payload: { user: null, token: null },
-            });
+          } catch (parseError) {
+            console.error('Failed to parse cached user data:', parseError);
           }
         }
-      } catch (error) {
-        console.error("Auth initialization error:", error);
-        if (isMounted) {
+        
+        try {
+          // Set token for API calls
+          setAuthToken(token);
+          
+          // Validate token with server (silently)
+          const response = await apiService.auth.getCurrentUser();
+          const user = response.data.data.user;
+          
+          // Update localStorage with fresh user data
+          localStorage.setItem('homestay_user', JSON.stringify(user));
+          
           dispatch({
-            type: AUTH_ACTIONS.INITIALIZE,
-            payload: { user: null, token: null },
+            type: 'LOGIN_SUCCESS',
+            payload: { user, token },
           });
+        } catch (error) {
+          // Silently handle token validation errors (don't log to console)
+          // Only clear token if it's definitely invalid (401, 403)
+          if (error.response?.status === 401 || error.response?.status === 403) {
+            localStorage.removeItem('homestay_token');
+            localStorage.removeItem('homestay_refresh_token');
+            localStorage.removeItem('homestay_user');
+            setAuthToken(null);
+            dispatch({ type: 'LOGOUT' });
+          }
+          // For other errors (network, 500, etc.), keep the user logged in
         }
+      } else {
+        dispatch({ type: 'LOGOUT' });
       }
     };
 
     initializeAuth();
-
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
-  // Auth methods
-  const login = useCallback(async (credentials) => {
-    dispatch({ type: AUTH_ACTIONS.LOGIN_START });
-
+  // Login function
+  const login = async (email, password) => {
+    dispatch({ type: 'LOADING' });
+    
     try {
-      const { customer, token } = await authService.login(credentials);
-
+      const response = await apiService.auth.login({ email, password });
+      const { user, accessToken: token, refreshToken } = response.data.data;
+      
+      // Store in localStorage
+      localStorage.setItem('homestay_token', token);
+      localStorage.setItem('homestay_refresh_token', refreshToken);
+      localStorage.setItem('homestay_user', JSON.stringify(user));
+      
+      // Set token for future API calls
+      setAuthToken(token);
+      
       dispatch({
-        type: AUTH_ACTIONS.LOGIN_SUCCESS,
-        payload: { user: customer, token },
+        type: 'LOGIN_SUCCESS',
+        payload: { user, token },
       });
-
-      showToast.success(SUCCESS_MESSAGES.LOGIN_SUCCESS);
-      return { success: true, user: customer };
+      
+      return { user, token };
     } catch (error) {
-      const errorMessage = error.message || ERROR_MESSAGES.INVALID_CREDENTIALS;
-
+      const errorMessage = error.response?.data?.error?.message || 'Login failed. Please try again.';
       dispatch({
-        type: AUTH_ACTIONS.LOGIN_FAILURE,
-        payload: { error: errorMessage },
+        type: 'AUTH_ERROR',
+        payload: errorMessage,
       });
-
-      showToast.error(errorMessage);
-      return { success: false, error: errorMessage };
+      throw new Error(errorMessage);
     }
-  }, []);
+  };
 
-  const register = useCallback(async (userData) => {
-    dispatch({ type: AUTH_ACTIONS.LOGIN_START });
-
+  // Logout function
+  const logout = async () => {
     try {
-      const { customer, token } = await authService.register(userData);
-
-      dispatch({
-        type: AUTH_ACTIONS.LOGIN_SUCCESS,
-        payload: { user: customer, token },
-      });
-
-      showToast.success(SUCCESS_MESSAGES.REGISTER_SUCCESS);
-      return { success: true, user: customer };
+      // Call logout API if user is authenticated
+      if (state.token) {
+        await apiService.auth.logout();
+      }
     } catch (error) {
-      const errorMessage = error.message || ERROR_MESSAGES.VALIDATION_ERROR;
+      console.error('Logout API call failed:', error);
+    } finally {
+      // Always clear local data regardless of API call result
+      localStorage.removeItem('homestay_token');
+      localStorage.removeItem('homestay_refresh_token');
+      localStorage.removeItem('homestay_user');
+      setAuthToken(null);
+      dispatch({ type: 'LOGOUT' });
+    }
+  };
 
+  // Register function
+  const register = async (userData) => {
+    dispatch({ type: 'LOADING' });
+    
+    try {
+      const response = await apiService.auth.register(userData);
+      const { user, accessToken: token, refreshToken } = response.data.data;
+      
+      // Store in localStorage
+      localStorage.setItem('homestay_token', token);
+      localStorage.setItem('homestay_refresh_token', refreshToken);
+      localStorage.setItem('homestay_user', JSON.stringify(user));
+      
+      // Set token for future API calls
+      setAuthToken(token);
+      
       dispatch({
-        type: AUTH_ACTIONS.LOGIN_FAILURE,
-        payload: { error: errorMessage },
+        type: 'LOGIN_SUCCESS',
+        payload: { user, token },
       });
-
-      showToast.error(errorMessage);
-      return { success: false, error: errorMessage };
-    }
-  }, []);
-
-  const logout = useCallback(async () => {
-    try {
-      await authService.logout();
-      dispatch({ type: AUTH_ACTIONS.LOGOUT });
-      showToast.success(SUCCESS_MESSAGES.LOGOUT_SUCCESS);
-
-      // Redirect to home page
-      window.location.href = "/";
+      
+      return { user, token };
     } catch (error) {
-      console.error("Logout error:", error);
-      // Force logout even if API call fails
-      dispatch({ type: AUTH_ACTIONS.LOGOUT });
-    }
-  }, []);
-
-  const updateProfile = useCallback(async (profileData) => {
-    dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: { loading: true } });
-
-    try {
-      const updatedUser = await authService.updateProfile(profileData);
-
+      let errorMessage = 'Registration failed. Please try again.';
+      
+      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        // Show validation errors
+        const validationErrors = error.response.data.errors.map(err => err.msg).join(', ');
+        errorMessage = `Validation failed: ${validationErrors}`;
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.error?.message) {
+        errorMessage = error.response.data.error.message;
+      }
       dispatch({
-        type: AUTH_ACTIONS.UPDATE_PROFILE,
-        payload: { user: updatedUser },
+        type: 'AUTH_ERROR',
+        payload: errorMessage,
       });
-
-      dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: { loading: false } });
-      showToast.success(SUCCESS_MESSAGES.PROFILE_UPDATED);
-      return { success: true, user: updatedUser };
-    } catch (error) {
-      const errorMessage = error.message || ERROR_MESSAGES.VALIDATION_ERROR;
-
-      dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: { loading: false } });
-      showToast.error(errorMessage);
-      return { success: false, error: errorMessage };
+      throw new Error(errorMessage);
     }
-  }, []);
+  };
 
-  const changePassword = useCallback(async (passwordData) => {
-    dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: { loading: true } });
+  // Update user function
+  const updateUser = (updatedUser) => {
+    localStorage.setItem('homestay_user', JSON.stringify(updatedUser));
+    dispatch({
+      type: 'LOGIN_SUCCESS',
+      payload: { user: updatedUser, token: state.token },
+    });
+  };
 
+  // Forgot password function
+  const forgotPassword = async (email) => {
     try {
-      await authService.changePassword(passwordData);
-
-      dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: { loading: false } });
-      showToast.success(SUCCESS_MESSAGES.PASSWORD_CHANGED);
+      await apiService.auth.forgotPassword(email);
       return { success: true };
     } catch (error) {
-      const errorMessage = error.message || ERROR_MESSAGES.VALIDATION_ERROR;
-
-      dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: { loading: false } });
-      showToast.error(errorMessage);
-      return { success: false, error: errorMessage };
+      const errorMessage = error.response?.data?.error?.message || 'Failed to send reset email.';
+      throw new Error(errorMessage);
     }
-  }, []);
+  };
 
-  const uploadProfileImage = useCallback(
-    async (imageFile, onProgress = null) => {
-      dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: { loading: true } });
-
-      try {
-        const updatedUser = await authService.uploadProfileImage(
-          imageFile,
-          onProgress
-        );
-
-        dispatch({
-          type: AUTH_ACTIONS.UPDATE_PROFILE,
-          payload: { user: updatedUser },
-        });
-
-        dispatch({
-          type: AUTH_ACTIONS.SET_LOADING,
-          payload: { loading: false },
-        });
-        showToast.success("Cập nhật ảnh đại diện thành công!");
-        return { success: true, user: updatedUser };
-      } catch (error) {
-        const errorMessage = error.message || "Tải ảnh thất bại";
-
-        dispatch({
-          type: AUTH_ACTIONS.SET_LOADING,
-          payload: { loading: false },
-        });
-        showToast.error(errorMessage);
-        return { success: false, error: errorMessage };
-      }
-    },
-    []
-  );
-
-  const clearError = useCallback(() => {
-    dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
-  }, []);
-
-  const refreshProfile = useCallback(async () => {
+  // Reset password function
+  const resetPassword = async (token, password) => {
     try {
-      const user = await authService.getProfile();
-      dispatch({
-        type: AUTH_ACTIONS.UPDATE_PROFILE,
-        payload: { user },
+      await apiService.auth.resetPassword(token, password);
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error.response?.data?.error?.message || 'Failed to reset password.';
+      throw new Error(errorMessage);
+    }
+  };
+
+  // Change password function
+  const changePassword = async (currentPassword, newPassword) => {
+    try {
+      await apiService.auth.changePassword({
+        currentPassword,
+        newPassword,
       });
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error.response?.data?.error?.message || 'Failed to change password.';
+      throw new Error(errorMessage);
+    }
+  };
+
+  // Check if user has specific role
+  const hasRole = (roles) => {
+    if (!state.user) return false;
+    if (typeof roles === 'string') return state.user.role === roles;
+    if (Array.isArray(roles)) return roles.includes(state.user.role);
+    return false;
+  };
+
+  // Check if user can access specific route
+  const canAccess = (requiredRoles) => {
+    if (!state.user) return false;
+    if (!requiredRoles || requiredRoles.length === 0) return true;
+    return hasRole(requiredRoles);
+  };
+
+  // Get user dashboard path
+  const getDashboard = () => {
+    if (!state.user) return '/';
+    return getDashboardPath(state.user.role);
+  };
+
+  // Refresh user data from server
+  const refreshUser = async () => {
+    try {
+      const response = await apiService.auth.getCurrentUser();
+      const user = response.data.data.user;
+      updateUser(user);
       return user;
     } catch (error) {
-      console.error("Failed to refresh profile:", error);
+      console.error('Failed to refresh user data:', error);
       throw error;
     }
-  }, []);
+  };
 
-  // Context value
-  const contextValue = {
-    // State
-    user: state.user,
-    token: state.token,
-    isAuthenticated: state.isAuthenticated,
-    isLoading: state.isLoading,
-    isInitialized: state.isInitialized,
-    error: state.error,
+  // Refresh access token using refresh token
+  const refreshAccessToken = async () => {
+    try {
+      const refreshToken = localStorage.getItem('homestay_refresh_token');
+      if (!refreshToken) {
+        throw new Error('No refresh token available');
+      }
 
-    // Methods
+      const response = await apiService.auth.refreshToken(refreshToken);
+      const { accessToken, refreshToken: newRefreshToken } = response.data.data;
+      
+      // Update tokens in localStorage
+      localStorage.setItem('homestay_token', accessToken);
+      localStorage.setItem('homestay_refresh_token', newRefreshToken);
+      
+      // Update token for API calls
+      setAuthToken(accessToken);
+      
+      return { accessToken, refreshToken: newRefreshToken };
+    } catch (error) {
+      console.error('Failed to refresh access token:', error);
+      // Clear all auth data if refresh fails
+      localStorage.removeItem('homestay_token');
+      localStorage.removeItem('homestay_refresh_token');
+      localStorage.removeItem('homestay_user');
+      setAuthToken(null);
+      dispatch({ type: 'LOGOUT' });
+      throw error;
+    }
+  };
+
+  const value = {
+    ...state,
     login,
-    register,
     logout,
-    updateProfile,
+    register,
+    updateUser,
+    forgotPassword,
+    resetPassword,
     changePassword,
-    uploadProfileImage,
-    clearError,
-    refreshProfile,
-
-    // Utility methods
-    isLoggedIn: state.isAuthenticated,
-    hasRole: (role) => state.user?.role === role,
-    isAdmin: () => state.user?.role === "admin",
-    isStaff: () => state.user?.role === "staff",
-    isCustomer: () => state.user?.role === "customer",
-    getUserId: () => state.user?.customer_id,
-    getUserEmail: () => state.user?.email,
-    getUserName: () => state.user?.full_name,
-    getUserRole: () => state.user?.role,
+    hasRole,
+    canAccess,
+    getDashboard,
+    refreshUser,
+    refreshAccessToken,
   };
 
   return (
-    <AuthContext.Provider value={contextValue}>
-      <AuthDispatchContext.Provider value={dispatch}>
-        {children}
-      </AuthDispatchContext.Provider>
+    <AuthContext.Provider value={value}>
+      {children}
     </AuthContext.Provider>
   );
+};
+
+// Custom hook to use auth context
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };
 
 export default AuthContext;

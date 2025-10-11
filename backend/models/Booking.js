@@ -1,254 +1,547 @@
-const { pool } = require('../config/database');
+// Booking Model
+// Will be implemented in Week 4
+
+const { executeQuery, getConnection } = require("../config/database");
 
 class Booking {
-  constructor(data) {
-    this.booking_id = data.booking_id;
-    this.customer_id = data.customer_id;
-    this.room_id = data.room_id;
-    this.check_in_date = data.check_in_date;
-    this.check_out_date = data.check_out_date;
-    this.number_of_guests = data.number_of_guests;
-    this.total_amount = data.total_amount;
-    this.booking_status = data.booking_status;
-    this.special_requests = data.special_requests;
-    this.booking_date = data.booking_date;
-    this.updated_at = data.updated_at;
+  constructor(bookingData) {
+    this.id = bookingData.id;
+    this.user_id = bookingData.user_id;
+    this.room_id = bookingData.room_id;
+    this.check_in_date = bookingData.check_in_date;
+    this.check_out_date = bookingData.check_out_date;
+    this.guests_count = bookingData.guests_count;
+    this.total_amount = bookingData.total_amount;
+    this.status = bookingData.status;
+    this.special_requests = bookingData.special_requests;
+    this.created_at = bookingData.created_at;
+    this.updated_at = bookingData.updated_at;
   }
 
-  static async create(bookingData) {
-    const { 
-      customer_id, 
-      room_id, 
-      check_in_date, 
-      check_out_date, 
-      number_of_guests, 
-      total_amount, 
-      special_requests,
-      additional_services = []
-    } = bookingData;
+  // Static methods for database operations
 
-    const connection = await pool.getConnection();
-    
+  // @desc    Get all bookings with filters and pagination
+  static async getAll(filters = {}, page = 1, limit = 10) {
+    try {
+      const offset = (page - 1) * limit;
+      let query = `
+        SELECT b.*, u.full_name as customer_name, u.email as customer_email, 
+               r.room_number, r.room_type, r.price_per_night, r.images
+        FROM bookings b
+        JOIN users u ON b.user_id = u.id
+        JOIN rooms r ON b.room_id = r.id
+        WHERE 1=1
+      `;
+      let countQuery = `
+        SELECT COUNT(*) as total
+        FROM bookings b
+        JOIN users u ON b.user_id = u.id
+        JOIN rooms r ON b.room_id = r.id
+        WHERE 1=1
+      `;
+      const queryParams = [];
+
+      // Apply filters
+      if (filters.status) {
+        query += " AND b.status = ?";
+        countQuery += " AND b.status = ?";
+        queryParams.push(filters.status);
+      }
+
+      if (filters.user_id) {
+        query += " AND b.user_id = ?";
+        countQuery += " AND b.user_id = ?";
+        queryParams.push(filters.user_id);
+      }
+
+      if (filters.room_id) {
+        query += " AND b.room_id = ?";
+        countQuery += " AND b.room_id = ?";
+        queryParams.push(filters.room_id);
+      }
+
+      if (filters.check_in_from) {
+        query += " AND b.check_in_date >= ?";
+        countQuery += " AND b.check_in_date >= ?";
+        queryParams.push(filters.check_in_from);
+      }
+
+      if (filters.check_in_to) {
+        query += " AND b.check_in_date <= ?";
+        countQuery += " AND b.check_in_date <= ?";
+        queryParams.push(filters.check_in_to);
+      }
+
+      query += ` ORDER BY b.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
+      const paginationParams = queryParams;
+
+      const [bookings, totalResult] = await Promise.all([
+        executeQuery(query, paginationParams),
+        executeQuery(countQuery, queryParams),
+      ]);
+
+      return {
+        bookings: bookings.map((booking) => {
+          // Create booking instance and add joined data
+          const bookingInstance = new Booking(booking);
+          bookingInstance.customer_name = booking.customer_name;
+          bookingInstance.customer_email = booking.customer_email;
+          bookingInstance.room_number = booking.room_number;
+          bookingInstance.room_type = booking.room_type;
+          bookingInstance.price_per_night = booking.price_per_night;
+          try {
+            if (booking.images) {
+              bookingInstance.room_images =
+                typeof booking.images === "string"
+                  ? JSON.parse(booking.images)
+                  : booking.images;
+            }
+          } catch (parseError) {
+
+            bookingInstance.room_images = [];
+          }
+          return bookingInstance;
+        }),
+        total: totalResult[0].total,
+        page,
+        totalPages: Math.ceil(totalResult[0].total / limit),
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // @desc    Find booking by ID
+  static async findById(id) {
+    try {
+      const query = `
+        SELECT b.*, u.full_name as customer_name, u.email as customer_email, u.phone as customer_phone,
+               r.room_number, r.room_type, r.price_per_night, r.capacity
+        FROM bookings b
+        JOIN users u ON b.user_id = u.id
+        JOIN rooms r ON b.room_id = r.id
+        WHERE b.id = ?
+      `;
+      const results = await executeQuery(query, [id]);
+      return results.length > 0 ? new Booking(results[0]) : null;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // @desc    Get bookings by user ID
+  static async findByUserId(userId, page = 1, limit = 10) {
+    try {
+      const offset = (page - 1) * limit;
+      const query = `
+        SELECT b.*, r.room_number, r.room_type, r.price_per_night
+        FROM bookings b
+        JOIN rooms r ON b.room_id = r.id
+        WHERE b.user_id = ?
+        ORDER BY b.created_at DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `;
+      const countQuery =
+        "SELECT COUNT(*) as total FROM bookings WHERE user_id = ?";
+
+      const [bookings, totalResult] = await Promise.all([
+        executeQuery(query, [userId]),
+        executeQuery(countQuery, [userId]),
+      ]);
+
+      return {
+        bookings: bookings.map((booking) => ({
+          id: booking.id,
+          user_id: booking.user_id,
+          room_id: booking.room_id,
+          check_in_date: booking.check_in_date,
+          check_out_date: booking.check_out_date,
+          guests_count: booking.guests_count,
+          total_amount: booking.total_amount,
+          status: booking.status,
+          special_requests: booking.special_requests,
+          created_at: booking.created_at,
+          updated_at: booking.updated_at,
+          room_number: booking.room_number,
+          room_type: booking.room_type,
+          price_per_night: booking.price_per_night,
+          room_images: [],
+        })),
+        total: totalResult[0].total,
+        page,
+        totalPages: Math.ceil(totalResult[0].total / limit),
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // @desc    Create new booking
+  static async create(bookingData) {
+    const connection = await getConnection();
+
     try {
       await connection.beginTransaction();
 
-      const [availabilityCheck] = await connection.execute(
-        `SELECT COUNT(*) as booking_count
-         FROM bookings
-         WHERE room_id = ? 
-         AND booking_status IN ('confirmed', 'checked_in')
-         AND (
-           (check_in_date <= ? AND check_out_date > ?) OR
-           (check_in_date < ? AND check_out_date >= ?) OR
-           (check_in_date >= ? AND check_out_date <= ?)
-         )`,
-        [room_id, check_in_date, check_in_date, check_out_date, check_out_date, check_in_date, check_out_date]
-      );
+      // Check room availability
+      const availabilityQuery = `
+        SELECT id FROM bookings 
+        WHERE room_id = ? 
+        AND status IN ('confirmed', 'checked_in')
+        AND (
+          (check_in_date <= ? AND check_out_date > ?) OR
+          (check_in_date < ? AND check_out_date >= ?) OR
+          (check_in_date >= ? AND check_out_date <= ?)
+        )
+      `;
+      const conflictBookings = await connection.execute(availabilityQuery, [
+        bookingData.room_id,
+        bookingData.check_in_date,
+        bookingData.check_in_date,
+        bookingData.check_out_date,
+        bookingData.check_out_date,
+        bookingData.check_in_date,
+        bookingData.check_out_date,
+      ]);
 
-      if (availabilityCheck[0].booking_count > 0) {
-        throw new Error('Room is not available for the selected dates');
+      if (conflictBookings[0].length > 0) {
+        throw new Error("Room is not available for the selected dates");
       }
 
-      const [bookingResult] = await connection.execute(
-        `INSERT INTO bookings (customer_id, room_id, check_in_date, check_out_date, number_of_guests, total_amount, special_requests)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [customer_id, room_id, check_in_date, check_out_date, number_of_guests, total_amount, special_requests]
-      );
+      // Calculate total amount
+      const roomQuery = "SELECT price_per_night FROM rooms WHERE id = ?";
+      const roomResult = await connection.execute(roomQuery, [
+        bookingData.room_id,
+      ]);
 
-      const bookingId = bookingResult.insertId;
-
-      if (additional_services.length > 0) {
-        for (const service of additional_services) {
-          await connection.execute(
-            `INSERT INTO booking_services (booking_id, service_id, quantity, unit_price, total_price)
-             VALUES (?, ?, ?, ?, ?)`,
-            [bookingId, service.service_id, service.quantity, service.unit_price, service.total_price]
-          );
-        }
+      if (roomResult[0].length === 0) {
+        throw new Error("Room not found");
       }
 
+      const pricePerNight = roomResult[0][0].price_per_night;
+      const checkIn = new Date(bookingData.check_in_date);
+      const checkOut = new Date(bookingData.check_out_date);
+      const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+      const totalAmount = pricePerNight * nights;
+
+      // Create booking
+      const insertQuery = `
+        INSERT INTO bookings (user_id, room_id, check_in_date, check_out_date, guests_count, total_amount, status, special_requests)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+
+      const values = [
+        bookingData.user_id,
+        bookingData.room_id,
+        bookingData.check_in_date,
+        bookingData.check_out_date,
+        bookingData.guests_count,
+        totalAmount,
+        bookingData.status || "pending",
+        bookingData.special_requests || null,
+      ];
+
+      const result = await connection.execute(insertQuery, values);
       await connection.commit();
-      
-      return await this.findByIdWithDetails(bookingId);
+
+      return await Booking.findById(result[0].insertId);
     } catch (error) {
       await connection.rollback();
-      throw new Error(`Error creating booking: ${error.message}`);
+      throw error;
     } finally {
       connection.release();
     }
   }
 
-  static async findByIdWithDetails(bookingId) {
+  // @desc    Check room availability for date range
+  static async checkAvailability(
+    roomId,
+    checkInDate,
+    checkOutDate,
+    excludeBookingId = null
+  ) {
     try {
-      const [rows] = await pool.execute(
-        `SELECT b.*, 
-                c.full_name as customer_name, c.email as customer_email, c.phone as customer_phone,
-                r.room_number, rt.type_name, rt.base_price,
-                p.payment_status, p.payment_method, p.payment_date
-         FROM bookings b
-         JOIN customers c ON b.customer_id = c.customer_id
-         JOIN rooms r ON b.room_id = r.room_id
-         JOIN room_types rt ON r.room_type_id = rt.room_type_id
-         LEFT JOIN payments p ON b.booking_id = p.booking_id
-         WHERE b.booking_id = ?`,
-        [bookingId]
-      );
+      let query = `
+        SELECT id, check_in_date, check_out_date FROM bookings 
+        WHERE room_id = ? 
+        AND status IN ('confirmed', 'checked_in')
+        AND (
+          (check_in_date <= ? AND check_out_date > ?) OR
+          (check_in_date < ? AND check_out_date >= ?) OR
+          (check_in_date >= ? AND check_out_date <= ?)
+        )
+      `;
+      const params = [
+        roomId,
+        checkInDate,
+        checkInDate,
+        checkOutDate,
+        checkOutDate,
+        checkInDate,
+        checkOutDate,
+      ];
 
-      if (rows.length === 0) return null;
+      if (excludeBookingId) {
+        query += " AND id != ?";
+        params.push(excludeBookingId);
+      }
 
-      const booking = rows[0];
-
-      const [services] = await pool.execute(
-        `SELECT bs.*, s.service_name, s.service_type
-         FROM booking_services bs
-         JOIN additional_services s ON bs.service_id = s.service_id
-         WHERE bs.booking_id = ?`,
-        [bookingId]
-      );
+      const results = await executeQuery(query, params);
 
       return {
-        ...booking,
-        additional_services: services
+        available: results.length === 0,
+        conflictingBookings: results.map((booking) => ({
+          id: booking.id,
+          check_in_date: booking.check_in_date,
+          check_out_date: booking.check_out_date,
+        })),
       };
     } catch (error) {
-      throw new Error(`Error finding booking: ${error.message}`);
+      throw error;
     }
   }
 
-  static async getByCustomerId(customerId) {
+  // Instance methods
+
+  // @desc    Update booking
+  async update(updateData) {
+    const connection = await getConnection();
+
     try {
-      const [rows] = await pool.execute(
-        `SELECT b.*, 
-                r.room_number, rt.type_name, rt.base_price,
-                p.payment_status, p.payment_method
-         FROM bookings b
-         JOIN rooms r ON b.room_id = r.room_id
-         JOIN room_types rt ON r.room_type_id = rt.room_type_id
-         LEFT JOIN payments p ON b.booking_id = p.booking_id
-         WHERE b.customer_id = ?
-         ORDER BY b.booking_date DESC`,
-        [customerId]
-      );
+      await connection.beginTransaction();
 
-      return rows;
-    } catch (error) {
-      throw new Error(`Error getting customer bookings: ${error.message}`);
-    }
-  }
+      const allowedFields = [
+        "check_in_date",
+        "check_out_date",
+        "guests_count",
+        "status",
+        "special_requests",
+      ];
 
-  async updateStatus(newStatus) {
-    try {
-      await pool.execute(
-        'UPDATE bookings SET booking_status = ?, updated_at = CURRENT_TIMESTAMP WHERE booking_id = ?',
-        [newStatus, this.booking_id]
-      );
+      const updateFields = [];
+      const values = [];
 
-      this.booking_status = newStatus;
-      return this;
-    } catch (error) {
-      throw new Error(`Error updating booking status: ${error.message}`);
-    }
-  }
+      // Check if dates are being updated and room is still available
+      if (updateData.check_in_date || updateData.check_out_date) {
+        const checkInDate = updateData.check_in_date || this.check_in_date;
+        const checkOutDate = updateData.check_out_date || this.check_out_date;
 
-  async cancel() {
-    try {
-      
-      if (this.booking_status === 'checked_in' || this.booking_status === 'checked_out') {
-        throw new Error('Cannot cancel booking that is already checked in or completed');
-      }
+        const availabilityResult = await Booking.checkAvailability(
+          this.room_id,
+          checkInDate,
+          checkOutDate,
+          this.id
+        );
 
-      await this.updateStatus('cancelled');
-      return this;
-    } catch (error) {
-      throw new Error(`Error cancelling booking: ${error.message}`);
-    }
-  }
+        if (!availabilityResult.available) {
+          throw new Error("Room is not available for the updated dates");
+        }
 
-  static async calculateTotalAmount(roomId, checkInDate, checkOutDate, numberOfGuests, additionalServices = []) {
-    try {
-      
-      const [roomRows] = await pool.execute(
-        `SELECT rt.base_price 
-         FROM rooms r
-         JOIN room_types rt ON r.room_type_id = rt.room_type_id
-         WHERE r.room_id = ?`,
-        [roomId]
-      );
+        // Recalculate total amount if dates changed
+        if (updateData.check_in_date || updateData.check_out_date) {
+          const roomQuery = "SELECT price_per_night FROM rooms WHERE id = ?";
+          const roomResult = await connection.execute(roomQuery, [
+            this.room_id,
+          ]);
+          const pricePerNight = roomResult[0][0].price_per_night;
 
-      if (roomRows.length === 0) {
-        throw new Error('Room not found');
-      }
-
-      const basePrice = roomRows[0].base_price;
-      const checkIn = new Date(checkInDate);
-      const checkOut = new Date(checkOutDate);
-      const numberOfNights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
-
-      let totalAmount = basePrice * numberOfNights;
-
-      if (additionalServices.length > 0) {
-        for (const service of additionalServices) {
-          const [serviceRows] = await pool.execute(
-            'SELECT price FROM additional_services WHERE service_id = ?',
-            [service.service_id]
+          const checkIn = new Date(checkInDate);
+          const checkOut = new Date(checkOutDate);
+          const nights = Math.ceil(
+            (checkOut - checkIn) / (1000 * 60 * 60 * 24)
           );
+          const newTotalAmount = pricePerNight * nights;
 
-          if (serviceRows.length > 0) {
-            totalAmount += serviceRows[0].price * service.quantity;
-          }
+          updateData.total_amount = newTotalAmount;
+          allowedFields.push("total_amount");
         }
       }
 
-      return {
-        base_amount: basePrice * numberOfNights,
-        services_amount: totalAmount - (basePrice * numberOfNights),
-        total_amount: totalAmount,
-        number_of_nights: numberOfNights
-      };
+      for (const field of allowedFields) {
+        if (updateData[field] !== undefined) {
+          updateFields.push(`${field} = ?`);
+          values.push(updateData[field]);
+        }
+      }
+
+      if (updateFields.length === 0) {
+        await connection.commit();
+        return this;
+      }
+
+      values.push(this.id);
+      const query = `UPDATE bookings SET ${updateFields.join(
+        ", "
+      )}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+
+      await connection.execute(query, values);
+      await connection.commit();
+
+      return await Booking.findById(this.id);
     } catch (error) {
-      throw new Error(`Error calculating total amount: ${error.message}`);
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
     }
   }
 
-  static async getUpcomingCheckIns(date = new Date()) {
+  // @desc    Cancel booking
+  async cancel() {
     try {
-      const [rows] = await pool.execute(
-        `SELECT b.*, 
-                c.full_name as customer_name, c.phone as customer_phone,
-                r.room_number, rt.type_name
-         FROM bookings b
-         JOIN customers c ON b.customer_id = c.customer_id
-         JOIN rooms r ON b.room_id = r.room_id
-         JOIN room_types rt ON r.room_type_id = rt.room_type_id
-         WHERE b.check_in_date = ? AND b.booking_status = 'confirmed'
-         ORDER BY b.check_in_date ASC`,
-        [date.toISOString().split('T')[0]]
-      );
-
-      return rows;
+      const query =
+        "UPDATE bookings SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP WHERE id = ?";
+      await executeQuery(query, [this.id]);
+      this.status = "cancelled";
+      return this;
     } catch (error) {
-      throw new Error(`Error getting upcoming check-ins: ${error.message}`);
+      throw error;
     }
   }
 
-  static async getUpcomingCheckOuts(date = new Date()) {
+  // @desc    Confirm booking
+  async confirm() {
     try {
-      const [rows] = await pool.execute(
-        `SELECT b.*, 
-                c.full_name as customer_name, c.phone as customer_phone,
-                r.room_number, rt.type_name
-         FROM bookings b
-         JOIN customers c ON b.customer_id = c.customer_id
-         JOIN rooms r ON b.room_id = r.room_id
-         JOIN room_types rt ON r.room_type_id = rt.room_type_id
-         WHERE b.check_out_date = ? AND b.booking_status = 'checked_in'
-         ORDER BY b.check_out_date ASC`,
-        [date.toISOString().split('T')[0]]
-      );
-
-      return rows;
+      const query =
+        "UPDATE bookings SET status = 'confirmed', updated_at = CURRENT_TIMESTAMP WHERE id = ?";
+      await executeQuery(query, [this.id]);
+      this.status = "confirmed";
+      return this;
     } catch (error) {
-      throw new Error(`Error getting upcoming check-outs: ${error.message}`);
+      throw error;
+    }
+  }
+
+  // @desc    Check in
+  async checkIn() {
+    try {
+      const query =
+        "UPDATE bookings SET status = 'checked_in', updated_at = CURRENT_TIMESTAMP WHERE id = ?";
+      await executeQuery(query, [this.id]);
+      this.status = "checked_in";
+      return this;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // @desc    Check out
+  async checkOut() {
+    try {
+      const query =
+        "UPDATE bookings SET status = 'checked_out', updated_at = CURRENT_TIMESTAMP WHERE id = ?";
+      await executeQuery(query, [this.id]);
+      this.status = "checked_out";
+      return this;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // @desc    Get booking services
+  async getServices() {
+    try {
+      const query = `
+        SELECT bs.*, s.name, s.description, s.category
+        FROM booking_services bs
+        JOIN services s ON bs.service_id = s.id
+        WHERE bs.booking_id = ?
+      `;
+      const results = await executeQuery(query, [this.id]);
+      return results;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // @desc    Calculate total nights
+  getTotalNights() {
+    const checkIn = new Date(this.check_in_date);
+    const checkOut = new Date(this.check_out_date);
+    return Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+  }
+
+  // @desc    Check if booking can be cancelled
+  canBeCancelled() {
+    return this.status === "pending" || this.status === "confirmed";
+  }
+
+  // @desc    Cancel booking
+  async cancel() {
+    try {
+      const { executeQuery } = require("../config/database");
+
+      const query = `
+        UPDATE bookings 
+        SET status = 'cancelled', updated_at = NOW() 
+        WHERE id = ?
+      `;
+
+      await executeQuery(query, [this.id]);
+
+      // Update local instance
+      this.status = "cancelled";
+      this.updated_at = new Date();
+
+      return this;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // @desc    Check if booking can be modified
+  canBeModified() {
+    return this.status === "pending" || this.status === "confirmed";
+  }
+
+  // @desc    Get JSON representation
+  toJSON() {
+    return {
+      id: this.id,
+      booking_code: this.booking_code,
+      user_id: this.user_id,
+      room_id: this.room_id,
+      check_in_date: this.check_in_date,
+      check_out_date: this.check_out_date,
+      number_of_guests: this.number_of_guests,
+      total_amount: this.total_amount,
+      status: this.status,
+      payment_status: this.payment_status,
+      special_requests: this.special_requests,
+      created_at: this.created_at,
+      updated_at: this.updated_at,
+      total_nights: this.getTotalNights(),
+      can_be_cancelled: this.canBeCancelled(),
+      can_be_modified: this.canBeModified(),
+    };
+  }
+
+  // @desc    Get user booking statistics
+  static async getUserStats(userId) {
+    try {
+      const query = `
+        SELECT 
+          COUNT(*) as totalBookings,
+          SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as activeBookings,
+          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completedBookings,
+          SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelledBookings,
+          COALESCE(SUM(CASE WHEN status IN ('confirmed', 'completed') THEN total_amount ELSE 0 END), 0) as totalSpent
+        FROM bookings 
+        WHERE user_id = ?
+      `;
+
+      const results = await executeQuery(query, [userId]);
+      return (
+        results[0] || {
+          totalBookings: 0,
+          activeBookings: 0,
+          completedBookings: 0,
+          cancelledBookings: 0,
+          totalSpent: 0,
+        }
+      );
+    } catch (error) {
+      throw error;
     }
   }
 }

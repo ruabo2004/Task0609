@@ -1,497 +1,921 @@
-import { useState, useCallback, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "react-query";
-import { toast } from "react-toastify";
-import bookingService from "@services/bookingService";
+import { useState, useCallback, useEffect } from 'react';
 
-/**
- * Hook for managing bookings
- * @param {Object} options - Hook options
- * @returns {Object} Booking management functions and state
- */
-export const useBookings = (options = {}) => {
-  const queryClient = useQueryClient();
-  const {
-    autoRefetch = true,
-    enableNotifications = true,
-    cacheTime = 10 * 60 * 1000, // 10 minutes
-    staleTime = 5 * 60 * 1000, // 5 minutes
-  } = options;
+import { apiService } from '@/services/api';
 
-  // ==========================================
-  // STATE MANAGEMENT
-  // ==========================================
+import toast from 'react-hot-toast';
 
-  const [filters, setFilters] = useState({
-    status: "",
-    page: 1,
-    limit: 10,
-    sort_by: "created_at",
-    sort_order: "desc",
-  });
+export const useBookings = (filters = {}, options = {}) => {
+  const [bookings, setBookings] = useState([]);
 
-  // ==========================================
-  // QUERIES
-  // ==========================================
+  const [loading, setLoading] = useState(false);
 
-  // Get user bookings
-  const {
-    data: bookingsData,
-    isLoading: isLoadingBookings,
-    error: bookingsError,
-    refetch: refetchBookings,
-  } = useQuery(
-    ["bookings", filters],
-    () => bookingService.getUserBookings(filters),
+  const [error, setError] = useState(null);
+
+  const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
+  const [currentPage, setCurrentPage] = useState(options.page || 1);
+
+  // Sample data for demonstration
+
+  const sampleBookings = [
+
     {
-      enabled: autoRefetch,
-      keepPreviousData: true,
-      staleTime,
-      cacheTime,
-      onError: (error) => {
-        if (enableNotifications) {
-          toast.error(error.message || "Không thể tải danh sách booking");
-        }
-      },
-    }
-  );
 
-  // Get booking statistics
-  const {
-    data: statsData,
-    isLoading: isLoadingStats,
-    error: statsError,
-  } = useQuery(["booking-stats"], () => bookingService.getBookingStats(), {
-    enabled: autoRefetch,
-    staleTime: 15 * 60 * 1000, // 15 minutes
-    cacheTime: 30 * 60 * 1000, // 30 minutes
-    onError: (error) => {
-      console.error("Error loading booking stats:", error);
+      id: 1,
+
+      booking_code: 'BK001',
+
+      user_name: 'Nguyễn Văn A',
+
+      user_email: 'nguyenvana@email.com',
+
+      user_phone: '0123456789',
+
+      room_number: '101',
+
+      room_name: 'Deluxe Room',
+
+      check_in_date: '2025-10-07',
+
+      check_out_date: '2025-10-09',
+
+      total_amount: 300.00,
+
+      status: 'confirmed',
+
+      created_at: '2025-10-05T10:00:00Z',
+
+      services: [
+
+        { id: 1, name: 'Breakfast', price: 15.00, quantity: 2 },
+
+        { id: 2, name: 'Airport Transfer', price: 25.00, quantity: 1 }
+
+      ],
+
+      special_requests: 'Late check-in, extra towels'
+
     },
-  });
 
-  // ==========================================
-  // MUTATIONS
-  // ==========================================
-
-  // Create booking
-  const createBookingMutation = useMutation(
-    (bookingData) => bookingService.createBooking(bookingData),
     {
-      onSuccess: (data) => {
-        queryClient.invalidateQueries(["bookings"]);
-        queryClient.invalidateQueries(["booking-stats"]);
 
-        if (enableNotifications) {
-          toast.success("Đặt phòng thành công!");
-        }
+      id: 2,
 
-        return data;
-      },
-      onError: (error) => {
-        if (enableNotifications) {
-          toast.error(error.message || "Không thể tạo booking");
-        }
-      },
-    }
-  );
+      booking_code: 'BK002',
 
-  // Update booking status
-  const updateBookingStatusMutation = useMutation(
-    ({ bookingId, status, notes }) =>
-      bookingService.updateBookingStatus(bookingId, status, notes),
+      user_name: 'Trần Thị B',
+
+      user_email: 'tranthib@email.com',
+
+      user_phone: '0987654321',
+
+      room_number: '102',
+
+      room_name: 'Standard Room',
+
+      check_in_date: '2025-10-08',
+
+      check_out_date: '2025-10-10',
+
+      total_amount: 200.00,
+
+      status: 'pending',
+
+      created_at: '2025-10-06T14:30:00Z',
+
+      services: [],
+
+      special_requests: 'Ground floor room preferred'
+
+    },
+
     {
-      onSuccess: (data, variables) => {
-        queryClient.invalidateQueries(["bookings"]);
-        queryClient.invalidateQueries(["booking", variables.bookingId]);
 
-        if (enableNotifications) {
-          toast.success("Cập nhật trạng thái booking thành công!");
-        }
+      id: 3,
 
-        return data;
-      },
-      onError: (error) => {
-        if (enableNotifications) {
-          toast.error(error.message || "Không thể cập nhật trạng thái booking");
-        }
-      },
-    }
-  );
+      booking_code: 'BK003',
 
-  // Cancel booking
-  const cancelBookingMutation = useMutation(
-    ({ bookingId, reason }) => bookingService.cancelBooking(bookingId, reason),
+      user_name: 'Lê Văn C',
+
+      user_email: 'levanc@email.com',
+
+      user_phone: '0369852147',
+
+      room_number: '201',
+
+      room_name: 'Suite Room',
+
+      check_in_date: '2025-10-06',
+
+      check_out_date: '2025-10-08',
+
+      total_amount: 450.00,
+
+      status: 'checked_in',
+
+      created_at: '2025-10-04T09:15:00Z',
+
+      services: [
+
+        { id: 3, name: 'Spa Service', price: 80.00, quantity: 1 },
+
+        { id: 4, name: 'Room Service', price: 35.00, quantity: 1 }
+
+      ],
+
+      special_requests: 'Anniversary celebration'
+
+    },
+
     {
-      onSuccess: (data, variables) => {
-        queryClient.invalidateQueries(["bookings"]);
-        queryClient.invalidateQueries(["booking", variables.bookingId]);
 
-        if (enableNotifications) {
-          toast.success("Hủy booking thành công!");
-        }
+      id: 4,
 
-        return data;
-      },
-      onError: (error) => {
-        if (enableNotifications) {
-          toast.error(error.message || "Không thể hủy booking");
-        }
-      },
-    }
-  );
+      booking_code: 'BK004',
 
-  // Modify booking dates
-  const modifyBookingDatesMutation = useMutation(
-    ({ bookingId, newDates }) =>
-      bookingService.modifyBookingDates(bookingId, newDates),
+      user_name: 'Phạm Thị D',
+
+      user_email: 'phamthid@email.com',
+
+      user_phone: '0147258369',
+
+      room_number: '103',
+
+      room_name: 'Standard Room',
+
+      check_in_date: '2025-10-09',
+
+      check_out_date: '2025-10-11',
+
+      total_amount: 180.00,
+
+      status: 'pending',
+
+      created_at: '2025-10-06T16:45:00Z',
+
+      services: [
+
+        { id: 5, name: 'Breakfast', price: 15.00, quantity: 1 }
+
+      ],
+
+      special_requests: ''
+
+    },
+
     {
-      onSuccess: (data, variables) => {
-        queryClient.invalidateQueries(["bookings"]);
-        queryClient.invalidateQueries(["booking", variables.bookingId]);
 
-        if (enableNotifications) {
-          toast.success("Thay đổi ngày booking thành công!");
-        }
+      id: 5,
 
-        return data;
-      },
-      onError: (error) => {
-        if (enableNotifications) {
-          toast.error(error.message || "Không thể thay đổi ngày booking");
-        }
-      },
+      booking_code: 'BK005',
+
+      user_name: 'Hoàng Văn E',
+
+      user_email: 'hoangvane@email.com',
+
+      user_phone: '0258147369',
+
+      room_number: '202',
+
+      room_name: 'Deluxe Room',
+
+      check_in_date: '2025-10-05',
+
+      check_out_date: '2025-10-07',
+
+      total_amount: 320.00,
+
+      status: 'checked_out',
+
+      created_at: '2025-10-03T11:20:00Z',
+
+      services: [
+
+        { id: 6, name: 'Laundry Service', price: 20.00, quantity: 1 },
+
+        { id: 7, name: 'Mini Bar', price: 45.00, quantity: 1 }
+
+      ],
+
+      special_requests: 'Early check-out'
+
     }
-  );
 
-  // Add guests to booking
-  const addGuestsMutation = useMutation(
-    ({ bookingId, guests }) =>
-      bookingService.addGuestsToBooking(bookingId, guests),
-    {
-      onSuccess: (data, variables) => {
-        queryClient.invalidateQueries(["booking", variables.bookingId]);
+  ];
 
-        if (enableNotifications) {
-          toast.success("Thêm khách thành công!");
+  const fetchBookings = useCallback(async (customFilters = {}) => {
+    try {
+
+      setLoading(true);
+
+      setError(null);
+
+      const mergedFilters = { ...filters, ...customFilters };
+      const params = {
+        ...mergedFilters,
+        page: currentPage,
+        limit: options.limit || 10
+      };
+
+      // Determine which API to call based on context
+      // If forStaff option is true, use getAll API, otherwise use getUserBookings
+      const isStaffView = options.forStaff === true;
+
+      // Call appropriate API
+      const response = isStaffView 
+        ? await apiService.bookings.getAll(params)
+        : await apiService.bookings.getUserBookings(params);
+
+      if (response.data && response.data.success) {
+
+        const bookingsData = response.data.data;
+
+        // Set pagination if available
+        if (response.data.pagination) {
+          setPagination(response.data.pagination);
+        }
+        
+        // Ensure we always set an array
+
+        setBookings(Array.isArray(bookingsData) ? bookingsData : []);
+
+      } else {
+
+        // Fallback to sample data if API fails
+
+        let filteredBookings = [...sampleBookings];
+
+        if (filters.status && filters.status !== 'all') {
+
+          filteredBookings = filteredBookings.filter(b => b.status === filters.status);
+
         }
 
-        return data;
-      },
-      onError: (error) => {
-        if (enableNotifications) {
-          toast.error(error.message || "Không thể thêm khách");
+        if (filters.search) {
+
+          const searchLower = filters.search.toLowerCase();
+
+          filteredBookings = filteredBookings.filter(b => 
+
+            b.user_name.toLowerCase().includes(searchLower) ||
+
+            b.booking_code.toLowerCase().includes(searchLower) ||
+
+            b.room_number.includes(filters.search) ||
+
+            b.user_email.toLowerCase().includes(searchLower)
+
+          );
+
         }
-      },
+
+        if (filters.date_from) {
+
+          filteredBookings = filteredBookings.filter(b => 
+
+            b.check_in_date >= filters.date_from
+
+          );
+
+        }
+
+        if (filters.date_to) {
+
+          filteredBookings = filteredBookings.filter(b => 
+
+            b.check_out_date <= filters.date_to
+
+          );
+
+        }
+
+        setBookings(filteredBookings);
+
+      }
+
+    } catch (err) {
+
+      console.error('API Error:', err);
+
+      setError(err.message);
+
+      // Fallback to sample data on error
+
+      let filteredBookings = [...sampleBookings];
+
+      if (filters.status && filters.status !== 'all') {
+
+        filteredBookings = filteredBookings.filter(b => b.status === filters.status);
+
+      }
+
+      if (filters.search) {
+
+        const searchLower = filters.search.toLowerCase();
+
+        filteredBookings = filteredBookings.filter(b => 
+
+          b.user_name.toLowerCase().includes(searchLower) ||
+
+          b.booking_code.toLowerCase().includes(searchLower) ||
+
+          b.room_number.includes(filters.search) ||
+
+          b.user_email.toLowerCase().includes(searchLower)
+
+        );
+
+      }
+
+      if (filters.date_from) {
+
+        filteredBookings = filteredBookings.filter(b => 
+
+          b.check_in_date >= filters.date_from
+
+        );
+
+      }
+
+      if (filters.date_to) {
+
+        filteredBookings = filteredBookings.filter(b => 
+
+          b.check_out_date <= filters.date_to
+
+        );
+
+      }
+
+      setBookings(filteredBookings);
+
+      toast.error('Không thể tải dữ liệu từ server, đang sử dụng dữ liệu mẫu');
+
+    } finally {
+
+      setLoading(false);
+
     }
-  );
 
-  // Submit review
-  const submitReviewMutation = useMutation(
-    ({ bookingId, reviewData }) =>
-      bookingService.submitReview(bookingId, reviewData),
-    {
-      onSuccess: (data, variables) => {
-        queryClient.invalidateQueries(["booking", variables.bookingId]);
-        queryClient.invalidateQueries(["bookings"]);
-
-        if (enableNotifications) {
-          toast.success("Gửi đánh giá thành công!");
-        }
-
-        return data;
-      },
-      onError: (error) => {
-        if (enableNotifications) {
-          toast.error(error.message || "Không thể gửi đánh giá");
-        }
-      },
-    }
-  );
-
-  // ==========================================
-  // COMPUTED VALUES
-  // ==========================================
-
-  const bookings = useMemo(() => {
-    return bookingsData?.data?.bookings || [];
-  }, [bookingsData]);
-
-  const pagination = useMemo(() => {
-    return bookingsData?.data?.pagination || {};
-  }, [bookingsData]);
-
-  const stats = useMemo(() => {
-    return statsData?.data || {};
-  }, [statsData]);
-
-  // Filter bookings by status
-  const activeBookings = useMemo(() => {
-    return bookings.filter((booking) =>
-      ["confirmed", "checked_in"].includes(booking.status)
-    );
-  }, [bookings]);
-
-  const completedBookings = useMemo(() => {
-    return bookings.filter((booking) => booking.status === "completed");
-  }, [bookings]);
-
-  const cancelledBookings = useMemo(() => {
-    return bookings.filter((booking) => booking.status === "cancelled");
-  }, [bookings]);
-
-  const pendingBookings = useMemo(() => {
-    return bookings.filter((booking) => booking.status === "pending");
-  }, [bookings]);
-
-  // ==========================================
-  // HELPER FUNCTIONS
-  // ==========================================
-
-  // Update filters
-  const updateFilters = useCallback((newFilters) => {
-    setFilters((prev) => ({
-      ...prev,
-      ...newFilters,
-      page: newFilters.page || 1, // Reset to page 1 when filters change
-    }));
   }, []);
 
-  // Reset filters
-  const resetFilters = useCallback(() => {
-    setFilters({
-      status: "",
-      page: 1,
-      limit: 10,
-      sort_by: "created_at",
-      sort_order: "desc",
-    });
+  const updateBookingStatus = useCallback(async (bookingId, newStatus) => {
+
+    try {
+
+      // Call real API based on status
+
+      let response;
+
+      switch (newStatus) {
+
+        case 'confirmed':
+
+          response = await apiService.bookings.confirm(bookingId);
+
+          break;
+
+        case 'checked_in':
+
+          response = await apiService.bookings.checkIn(bookingId);
+
+          break;
+
+        case 'checked_out':
+
+          response = await apiService.bookings.checkOut(bookingId, { verify_payment: false });
+
+          break;
+
+        case 'cancelled':
+
+          response = await apiService.bookings.cancel(bookingId, 'Cancelled by staff');
+
+          break;
+
+        default:
+
+          response = await apiService.bookings.update(bookingId, { status: newStatus });
+
+      }
+
+      if (response.data && response.data.success) {
+        // Check if checkout requires payment (QR code)
+        if (newStatus === 'checked_out' && response.data.data?.requires_payment) {
+          // Don't allow checkout if there are unpaid services
+          toast.error('Chưa thanh toán dịch vụ bổ sung. Vui lòng thanh toán trước khi checkout.', {
+            duration: 5000,
+            style: {
+              background: '#fef2f2',
+              color: '#dc2626',
+              border: '1px solid #f87171'
+            }
+          });
+          
+          return { requiresPayment: true, error: 'Chưa thanh toán dịch vụ bổ sung' };
+        }
+
+        setBookings(prev => prev.map(booking => 
+
+          booking.id === bookingId 
+
+            ? { ...booking, status: newStatus }
+
+            : booking
+
+        ));
+
+        const statusTexts = {
+
+          pending: 'Chờ xác nhận',
+
+          confirmed: 'Đã xác nhận',
+
+          checked_in: 'Đã check-in',
+
+          checked_out: 'Đã check-out',
+
+          cancelled: 'Đã hủy'
+
+        };
+
+        toast.success(`Đã cập nhật trạng thái thành ${statusTexts[newStatus]}`);
+
+        return true;
+
+      } else {
+
+        throw new Error(response.data?.message || 'Cập nhật thất bại');
+
+      }
+
+    } catch (err) {
+
+      console.error('Update booking status error:', err);
+
+      // Handle checkout with pending payment error
+      if (err.response?.status === 400 && err.response?.data?.pending_payment) {
+        const pendingPayment = err.response.data.pending_payment;
+        toast.error(pendingPayment.message, {
+          duration: 6000,
+          style: {
+            background: '#fef2f2',
+            color: '#dc2626',
+            border: '1px solid #fca5a5'
+          }
+        });
+      } else {
+        toast.error('Không thể cập nhật trạng thái đặt phòng: ' + (err.response?.data?.message || err.message));
+      }
+
+      return false;
+
+    }
+
   }, []);
 
-  // Handle pagination
-  const handlePageChange = useCallback(
-    (page) => {
-      updateFilters({ page });
-    },
-    [updateFilters]
-  );
+  const addServiceToBooking = useCallback(async (bookingId, serviceData) => {
 
-  // Handle sort change
-  const handleSortChange = useCallback(
-    (sortBy, sortOrder = "desc") => {
-      updateFilters({
-        sort_by: sortBy,
-        sort_order: sortOrder,
-        page: 1,
-      });
-    },
-    [updateFilters]
-  );
+    try {
 
-  // Create booking
-  const createBooking = useCallback(
-    async (bookingData) => {
-      try {
-        const result = await createBookingMutation.mutateAsync(bookingData);
-        return result;
-      } catch (error) {
-        throw error;
+      // Call real API
+
+      const response = await apiService.bookings.addService(bookingId, serviceData);
+
+      if (response.data && response.data.success) {
+
+        const newService = {
+
+          id: response.data.data.id || Date.now(),
+
+          ...serviceData
+
+        };
+
+        // Check if additional payment is required
+        const paymentInfo = response.data.data.payment_info;
+        if (paymentInfo && paymentInfo.requires_payment) {
+          toast.success('Đã thêm dịch vụ thành công. ' + paymentInfo.message, {
+            duration: 5000,
+            style: {
+              background: '#fef3c7',
+              color: '#92400e',
+              border: '1px solid #f59e0b'
+            }
+          });
+          // Store payment info for UI display
+          window.pendingPaymentInfo = paymentInfo;
+        } else {
+          toast.success('Đã thêm dịch vụ thành công');
+        }
+
+        // Refresh booking data from backend to get updated total_amount
+        await fetchBookings();
+
+        return true;
+
+      } else {
+
+        throw new Error(response.data?.message || 'Thêm dịch vụ thất bại');
+
       }
-    },
-    [createBookingMutation]
-  );
 
-  // Update booking status
-  const updateBookingStatus = useCallback(
-    async (bookingId, status, notes = "") => {
+    } catch (err) {
+
+      console.error('Add service error:', err);
+
+      toast.error('Không thể thêm dịch vụ: ' + (err.response?.data?.message || err.message));
+
+      return false;
+
+    }
+
+  }, []);
+
+  const removeServiceFromBooking = useCallback(async (bookingId, serviceId) => {
+
+    try {
+
+      // Call dedicated API to remove booking service by its id
+      let response;
       try {
-        const result = await updateBookingStatusMutation.mutateAsync({
-          bookingId,
-          status,
-          notes,
+        response = await apiService.bookings.removeService(bookingId, serviceId);
+      } catch (e) {
+        // Fallback for servers without DELETE endpoint
+        response = await apiService.bookings.update(bookingId, {
+          action: 'remove_service',
+          service_id: serviceId
         });
-        return result;
-      } catch (error) {
-        throw error;
       }
-    },
-    [updateBookingStatusMutation]
-  );
 
-  // Cancel booking
-  const cancelBooking = useCallback(
-    async (bookingId, reason = "") => {
-      try {
-        const result = await cancelBookingMutation.mutateAsync({
-          bookingId,
-          reason,
-        });
-        return result;
-      } catch (error) {
-        throw error;
+      if (response.data && response.data.success) {
+        setBookings(prev => prev.map(booking => {
+          if (booking.id === bookingId) {
+            const servicesArray = Array.isArray(booking.services) ? booking.services : [];
+            const serviceToRemove = servicesArray.find(s => s.id === serviceId);
+            const updatedServices = servicesArray.filter(s => s.id !== serviceId);
+            const removedAmount = serviceToRemove
+              ? (parseFloat(serviceToRemove.total_price) || (parseFloat(serviceToRemove.unit_price) || 0) * (serviceToRemove.quantity || 1))
+              : 0;
+            const updatedAmount = (parseFloat(booking.total_amount) || 0) - removedAmount;
+
+            return {
+              ...booking,
+              services: updatedServices,
+              total_amount: updatedAmount
+            };
+          }
+          return booking;
+        }));
+
+        toast.success('Đã xóa dịch vụ thành công');
+
+        return true;
+
+      } else {
+
+        throw new Error(response.data?.message || 'Xóa dịch vụ thất bại');
+
       }
-    },
-    [cancelBookingMutation]
-  );
 
-  // Modify booking dates
-  const modifyBookingDates = useCallback(
-    async (bookingId, newDates) => {
-      try {
-        const result = await modifyBookingDatesMutation.mutateAsync({
-          bookingId,
-          newDates,
-        });
-        return result;
-      } catch (error) {
-        throw error;
-      }
-    },
-    [modifyBookingDatesMutation]
-  );
+    } catch (err) {
 
-  // Add guests
-  const addGuests = useCallback(
-    async (bookingId, guests) => {
-      try {
-        const result = await addGuestsMutation.mutateAsync({
-          bookingId,
-          guests,
-        });
-        return result;
-      } catch (error) {
-        throw error;
-      }
-    },
-    [addGuestsMutation]
-  );
+      console.error('Remove service error:', err);
 
-  // Submit review
-  const submitReview = useCallback(
-    async (bookingId, reviewData) => {
-      try {
-        const result = await submitReviewMutation.mutateAsync({
-          bookingId,
-          reviewData,
-        });
-        return result;
-      } catch (error) {
-        throw error;
-      }
-    },
-    [submitReviewMutation]
-  );
+      toast.error('Không thể xóa dịch vụ: ' + (err.response?.data?.message || err.message));
 
-  // ==========================================
-  // RETURN VALUES
-  // ==========================================
+      return false;
+
+    }
+
+  }, []);
+
+  const getBookingStats = useCallback(() => {
+
+    // Ensure bookings is an array
+
+    const bookingsArray = Array.isArray(bookings) ? bookings : [];
+
+    return {
+
+      total: bookingsArray.length,
+
+      pending: bookingsArray.filter(b => b.status === 'pending').length,
+
+      confirmed: bookingsArray.filter(b => b.status === 'confirmed').length,
+
+      checked_in: bookingsArray.filter(b => b.status === 'checked_in').length,
+
+      checked_out: bookingsArray.filter(b => b.status === 'checked_out').length,
+
+      cancelled: bookingsArray.filter(b => b.status === 'cancelled').length,
+
+      total_revenue: bookingsArray.reduce((sum, b) => {
+        const amount = parseFloat(b.total_amount) || 0;
+        return sum + amount;
+      }, 0)
+    };
+
+  }, [bookings]);
+
+  // Auto-fetch on mount if immediate option is true (default)
+  useEffect(() => {
+    if (options.immediate !== false) {
+      fetchBookings();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Refetch when page changes
+  useEffect(() => {
+    if (currentPage > 1) {
+      fetchBookings();
+    }
+  }, [currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
-    // Data
+
+    data: bookings,
     bookings,
+
+    loading,
+
+    error,
+
     pagination,
-    stats,
-    activeBookings,
-    completedBookings,
-    cancelledBookings,
-    pendingBookings,
+    setPage: setCurrentPage,
+    refetch: fetchBookings,
+    fetchBookings,
 
-    // Loading states
-    isLoading: isLoadingBookings,
-    isLoadingStats,
-    isCreating: createBookingMutation.isLoading,
-    isUpdating: updateBookingStatusMutation.isLoading,
-    isCancelling: cancelBookingMutation.isLoading,
-    isModifying: modifyBookingDatesMutation.isLoading,
-    isAddingGuests: addGuestsMutation.isLoading,
-    isSubmittingReview: submitReviewMutation.isLoading,
-
-    // Error states
-    error: bookingsError,
-    statsError,
-    createError: createBookingMutation.error,
-    updateError: updateBookingStatusMutation.error,
-    cancelError: cancelBookingMutation.error,
-    modifyError: modifyBookingDatesMutation.error,
-    addGuestsError: addGuestsMutation.error,
-    reviewError: submitReviewMutation.error,
-
-    // Actions
-    createBooking,
     updateBookingStatus,
-    cancelBooking,
-    modifyBookingDates,
-    addGuests,
-    submitReview,
-    refetchBookings,
 
-    // Filter management
-    filters,
-    updateFilters,
-    resetFilters,
-    handlePageChange,
-    handleSortChange,
+    addServiceToBooking,
 
-    // Utility functions
-    hasActiveFilters: Object.values(filters).some(
-      (value) =>
-        value !== "" &&
-        value !== 1 &&
-        value !== 10 &&
-        value !== "created_at" &&
-        value !== "desc"
-    ),
-    totalBookings: pagination.total_items || 0,
-    hasNextPage: pagination.has_next_page || false,
-    hasPrevPage: pagination.has_prev_page || false,
+    removeServiceFromBooking,
+
+    getBookingStats
+
   };
+
 };
 
-/**
- * Hook for managing a single booking
- * @param {number} bookingId - Booking ID
- * @param {Object} options - Hook options
- * @returns {Object} Single booking management functions and state
- */
-export const useBooking = (bookingId, options = {}) => {
-  const queryClient = useQueryClient();
-  const {
-    enabled = true,
-    refetchInterval = false,
-    enableNotifications = true,
-  } = options;
+// Hook for creating new bookings
 
-  // Get single booking
-  const {
-    data: bookingData,
-    isLoading,
-    error,
-    refetch,
-  } = useQuery(
-    ["booking", bookingId],
-    () => bookingService.getBookingById(bookingId),
-    {
-      enabled: enabled && !!bookingId,
-      refetchInterval,
-      onError: (error) => {
-        if (enableNotifications) {
-          toast.error(error.message || "Không thể tải thông tin booking");
+export const useCreateBooking = (options = {}) => {
+  const [loading, setLoading] = useState(false);
+
+  const [error, setError] = useState(null);
+
+  const { showSuccessToast = true, onSuccess, onError } = options;
+
+  const mutate = useCallback(async (bookingData) => {
+    try {
+
+      setLoading(true);
+
+      setError(null);
+
+      // Call the API
+      const response = await apiService.bookings.create(bookingData);
+
+      // Handle different response structures
+      const bookingResult = response.data?.data || response.data;
+      
+      if (response.data?.success !== false) {
+        if (showSuccessToast) {
+        toast.success('Đặt phòng thành công!');
+
         }
-      },
-    }
-  );
+        
+        // Call onSuccess callback if provided
+        if (onSuccess) {
+          onSuccess(bookingResult);
+        }
+        
+        return { success: true, data: bookingResult };
+      } else {
 
-  const booking = useMemo(() => {
-    return bookingData?.data || null;
-  }, [bookingData]);
+        throw new Error(response.data?.message || 'Đặt phòng thất bại');
+      }
+
+    } catch (err) {
+
+      const errorMessage = err.response?.data?.message || err.message || 'Có lỗi xảy ra khi đặt phòng';
+      setError(errorMessage);
+
+      // Call onError callback if provided
+      if (onError) {
+        onError(err);
+      } else {
+      toast.error(errorMessage);
+
+      }
+      
+      return { success: false, error: errorMessage };
+
+    } finally {
+
+      setLoading(false);
+
+    }
+
+  }, [showSuccessToast, onSuccess, onError]);
 
   return {
-    booking,
-    isLoading,
-    error,
-    refetch,
+
+    mutate,
+    createBooking: mutate, // Alias for backward compatibility
+    loading,
+
+    error
+
   };
+
 };
 
-export default useBookings;
+// Hook for getting user booking statistics
 
+export const useUserBookingStats = () => {
 
+  const [data, setData] = useState(null);
+
+  const [loading, setLoading] = useState(false);
+
+  const [error, setError] = useState(null);
+
+  const fetchStats = useCallback(async () => {
+
+    try {
+
+      setLoading(true);
+
+      setError(null);
+
+      // Call real API
+
+      const response = await apiService.bookings.getUserStats();
+
+      if (response.data && response.data.success) {
+
+        setData(response.data.data);
+
+      } else {
+
+        // Fallback to sample stats
+
+        const sampleStats = {
+
+          totalBookings: 12,
+
+          upcomingBookings: 3,
+
+          completedBookings: 8,
+
+          cancelledBookings: 1,
+
+          totalSpent: 2450.00,
+
+          favoriteRoomType: 'Deluxe Room',
+
+          memberSince: '2024-01-15',
+
+          loyaltyPoints: 245
+
+        };
+
+        setData(sampleStats);
+
+      }
+
+    } catch (err) {
+
+      console.error('Fetch user stats error:', err);
+
+      setError(err.message);
+
+      // Fallback to sample stats on error
+
+      const sampleStats = {
+
+        totalBookings: 12,
+
+        upcomingBookings: 3,
+
+        completedBookings: 8,
+
+        cancelledBookings: 1,
+
+        totalSpent: 2450.00,
+
+        favoriteRoomType: 'Deluxe Room',
+
+        memberSince: '2024-01-15',
+
+        loyaltyPoints: 245
+
+      };
+
+      setData(sampleStats);
+
+      toast.error('Không thể tải dữ liệu từ server, đang sử dụng dữ liệu mẫu');
+
+    } finally {
+
+      setLoading(false);
+
+    }
+
+  }, []);
+
+  useEffect(() => {
+
+    fetchStats();
+
+  }, [fetchStats]);
+
+  return {
+
+    data,
+
+    loading,
+
+    error,
+
+    refetch: fetchStats
+
+  };
+
+};
+
+// Hook for canceling bookings
+
+export const useCancelBooking = (options = {}) => {
+  const [loading, setLoading] = useState(false);
+
+  const [error, setError] = useState(null);
+
+  const { onSuccess, onError } = options;
+
+  const mutate = useCallback(async ({ id, reason = '' }) => {
+    try {
+
+      setLoading(true);
+
+      setError(null);
+
+      // Call real API
+
+      const response = await apiService.bookings.cancel(id, reason);
+
+      if (response.data && response.data.success) {
+
+        toast.success('Đã hủy đặt phòng thành công');
+
+        // Call onSuccess callback if provided
+        if (onSuccess) {
+          onSuccess(response.data);
+        }
+        
+        return { success: true, message: 'Booking cancelled successfully' };
+
+      } else {
+
+        throw new Error(response.data?.message || 'Hủy đặt phòng thất bại');
+
+      }
+
+    } catch (err) {
+
+      console.error('Cancel booking error:', err);
+
+      const errorMessage = err.response?.data?.message || err.message || 'Không thể hủy đặt phòng';
+
+      setError(errorMessage);
+
+      // Call onError callback if provided
+      if (onError) {
+        onError(err);
+      } else {
+      toast.error(errorMessage);
+
+      }
+      
+      return { success: false, error: errorMessage };
+
+    } finally {
+
+      setLoading(false);
+
+    }
+
+  }, [onSuccess, onError]);
+
+  return {
+
+    mutate,
+    cancelBooking: mutate, // Alias for backward compatibility
+    loading,
+
+    error
+
+  };
+
+};

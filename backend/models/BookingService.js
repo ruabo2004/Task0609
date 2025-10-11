@@ -1,334 +1,419 @@
-const { pool } = require("../config/database");
+// BookingService Model
+// Will be implemented in Week 4
+
+const { executeQuery, getConnection } = require("../config/database");
 
 class BookingService {
-  constructor(data) {
-    this.booking_service_id = data.booking_service_id;
-    this.booking_id = data.booking_id;
-    this.service_id = data.service_id;
-    this.quantity = data.quantity;
-    this.unit_price = data.unit_price;
-    this.total_price = data.total_price;
-    this.service_date = data.service_date;
-    this.service_time = data.service_time;
-    this.status = data.status;
-    this.notes = data.notes;
-    this.created_at = data.created_at;
-    this.updated_at = data.updated_at;
+  constructor(bookingServiceData) {
+    this.id = bookingServiceData.id;
+    this.booking_id = bookingServiceData.booking_id;
+    this.service_id = bookingServiceData.service_id;
+    // Prefer explicit service name from joined query; fall back to generic name
+    this.name = bookingServiceData.service_name || bookingServiceData.name;
+    this.quantity = bookingServiceData.quantity;
+    this.unit_price = bookingServiceData.unit_price;
+    this.total_price = bookingServiceData.total_price;
+    this.price = bookingServiceData.unit_price; // Alias for backward compatibility
+    this.created_at = bookingServiceData.created_at;
   }
 
-  /**
-   * Create a new booking service
-   */
-  static async create(bookingServiceData) {
-    const {
-      booking_id,
-      service_id,
-      quantity,
-      unit_price,
-      total_price,
-      service_date,
-      service_time,
-      notes = "",
-      status = "pending",
-    } = bookingServiceData;
+  // Static methods for database operations
 
+  // @desc    Get all booking services with details
+  static async getAll(filters = {}) {
     try {
-      const [result] = await pool.execute(
-        `INSERT INTO booking_services 
-         (booking_id, service_id, quantity, unit_price, total_price, 
-          service_date, service_time, status, notes)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          booking_id,
-          service_id,
-          quantity,
-          unit_price,
-          total_price,
-          service_date,
-          service_time,
-          status,
-          notes,
-        ]
-      );
-
-      return await this.findById(result.insertId);
-    } catch (error) {
-      throw new Error(`Error creating booking service: ${error.message}`);
-    }
-  }
-
-  /**
-   * Find booking service by ID
-   */
-  static async findById(booking_service_id) {
-    try {
-      const [rows] = await pool.execute(
-        `SELECT bs.*, s.service_name, s.service_type, s.description 
-         FROM booking_services bs
-         JOIN additional_services s ON bs.service_id = s.service_id
-         WHERE bs.booking_service_id = ?`,
-        [booking_service_id]
-      );
-
-      return rows.length > 0 ? new BookingService(rows[0]) : null;
-    } catch (error) {
-      throw new Error(`Error finding booking service: ${error.message}`);
-    }
-  }
-
-  /**
-   * Get booking by ID (for validation)
-   */
-  static async getBookingById(booking_id) {
-    try {
-      const [rows] = await pool.execute(
-        "SELECT * FROM bookings WHERE booking_id = ?",
-        [booking_id]
-      );
-
-      return rows.length > 0 ? rows[0] : null;
-    } catch (error) {
-      throw new Error(`Error getting booking: ${error.message}`);
-    }
-  }
-
-  /**
-   * Get all services for a booking
-   */
-  static async getByBookingId(booking_id) {
-    try {
-      const [rows] = await pool.execute(
-        `SELECT bs.*, s.service_name, s.service_type, s.description, s.images
-         FROM booking_services bs
-         JOIN additional_services s ON bs.service_id = s.service_id
-         WHERE bs.booking_id = ?
-         ORDER BY bs.created_at DESC`,
-        [booking_id]
-      );
-
-      return rows.map((row) => {
-        // Parse images if exists
-        if (row.images) {
-          row.images = JSON.parse(row.images);
-        }
-        return new BookingService(row);
-      });
-    } catch (error) {
-      throw new Error(`Error getting booking services: ${error.message}`);
-    }
-  }
-
-  /**
-   * Update booking service status
-   */
-  static async updateStatus(booking_service_id, status, notes = "") {
-    try {
-      const updateQuery = notes
-        ? "UPDATE booking_services SET status = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE booking_service_id = ?"
-        : "UPDATE booking_services SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE booking_service_id = ?";
-
-      const params = notes
-        ? [status, notes, booking_service_id]
-        : [status, booking_service_id];
-
-      await pool.execute(updateQuery, params);
-
-      return await this.findById(booking_service_id);
-    } catch (error) {
-      throw new Error(
-        `Error updating booking service status: ${error.message}`
-      );
-    }
-  }
-
-  /**
-   * Cancel booking service
-   */
-  static async cancel(booking_service_id, reason = "") {
-    try {
-      return await this.updateStatus(booking_service_id, "cancelled", reason);
-    } catch (error) {
-      throw new Error(`Error cancelling booking service: ${error.message}`);
-    }
-  }
-
-  /**
-   * Confirm booking service
-   */
-  static async confirm(booking_service_id, notes = "") {
-    try {
-      return await this.updateStatus(booking_service_id, "confirmed", notes);
-    } catch (error) {
-      throw new Error(`Error confirming booking service: ${error.message}`);
-    }
-  }
-
-  /**
-   * Complete booking service
-   */
-  static async complete(booking_service_id, notes = "") {
-    try {
-      return await this.updateStatus(booking_service_id, "completed", notes);
-    } catch (error) {
-      throw new Error(`Error completing booking service: ${error.message}`);
-    }
-  }
-
-  /**
-   * Get services by customer
-   */
-  static async getByCustomerId(customer_id, filters = {}) {
-    try {
-      const { status, page = 1, limit = 20 } = filters;
-
       let query = `
-        SELECT bs.*, s.service_name, s.service_type, s.description, s.images,
-               b.booking_code, b.check_in_date, b.check_out_date
+        SELECT bs.*, s.name as service_name, s.description as service_description, 
+               s.category as service_category, b.user_id, u.full_name as customer_name
         FROM booking_services bs
-        JOIN additional_services s ON bs.service_id = s.service_id
-        JOIN bookings b ON bs.booking_id = b.booking_id
-        WHERE b.customer_id = ?
+        JOIN services s ON bs.service_id = s.id
+        JOIN bookings b ON bs.booking_id = b.id
+        JOIN users u ON b.user_id = u.id
+        WHERE 1=1
       `;
-      const queryParams = [customer_id];
+      const queryParams = [];
 
-      if (status) {
-        query += " AND bs.status = ?";
-        queryParams.push(status);
+      // Apply filters
+      if (filters.booking_id) {
+        query += " AND bs.booking_id = ?";
+        queryParams.push(filters.booking_id);
+      }
+
+      if (filters.service_id) {
+        query += " AND bs.service_id = ?";
+        queryParams.push(filters.service_id);
+      }
+
+      if (filters.user_id) {
+        query += " AND b.user_id = ?";
+        queryParams.push(filters.user_id);
+      }
+
+      if (filters.service_category) {
+        query += " AND s.category = ?";
+        queryParams.push(filters.service_category);
       }
 
       query += " ORDER BY bs.created_at DESC";
 
-      // Add pagination
-      const offset = (page - 1) * limit;
-      query += " LIMIT ? OFFSET ?";
-      queryParams.push(limit, offset);
+      const results = await executeQuery(query, queryParams);
+      return results.map(
+        (bookingService) => new BookingService(bookingService)
+      );
+    } catch (error) {
+      throw error;
+    }
+  }
 
-      const [rows] = await pool.execute(query, queryParams);
-
-      // Get total count
-      let countQuery = `
-        SELECT COUNT(*) as total
+  // @desc    Get booking services by booking ID
+  static async getByBookingId(bookingId) {
+    try {
+      const query = `
+        SELECT bs.*, s.name as service_name, s.description as service_description,
+               s.category as service_category
         FROM booking_services bs
-        JOIN bookings b ON bs.booking_id = b.booking_id
-        WHERE b.customer_id = ?
+        JOIN services s ON bs.service_id = s.id
+        WHERE bs.booking_id = ?
+        ORDER BY s.category ASC, s.name ASC
       `;
-      const countParams = [customer_id];
-
-      if (status) {
-        countQuery += " AND bs.status = ?";
-        countParams.push(status);
-      }
-
-      const [countRows] = await pool.execute(countQuery, countParams);
-      const total = countRows[0].total;
-
-      const services = rows.map((row) => {
-        if (row.images) {
-          row.images = JSON.parse(row.images);
-        }
-        return new BookingService(row);
-      });
-
-      return {
-        services,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
-        },
-      };
-    } catch (error) {
-      throw new Error(
-        `Error getting customer booking services: ${error.message}`
+      const results = await executeQuery(query, [bookingId]);
+      return results.map(
+        (bookingService) => new BookingService(bookingService)
       );
+    } catch (error) {
+      throw error;
     }
   }
 
-  /**
-   * Get total revenue for booking services
-   */
-  static async getTotalRevenue(timeframe = "30d") {
+  // @desc    Get booking services by service ID
+  static async getByServiceId(serviceId) {
     try {
-      let dateFilter = "";
+      const query = `
+        SELECT bs.*, b.user_id, u.full_name as customer_name, 
+               b.check_in_date, b.check_out_date, r.room_number
+        FROM booking_services bs
+        JOIN bookings b ON bs.booking_id = b.id
+        JOIN users u ON b.user_id = u.id
+        JOIN rooms r ON b.room_id = r.id
+        WHERE bs.service_id = ?
+        ORDER BY bs.created_at DESC
+      `;
+      const results = await executeQuery(query, [serviceId]);
+      return results.map(
+        (bookingService) => new BookingService(bookingService)
+      );
+    } catch (error) {
+      throw error;
+    }
+  }
 
-      switch (timeframe) {
-        case "7d":
-          dateFilter =
-            "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
-          break;
-        case "30d":
-          dateFilter =
-            "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)";
-          break;
-        case "90d":
-          dateFilter =
-            "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)";
-          break;
-        case "1y":
-          dateFilter =
-            "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)";
-          break;
-        default:
-          dateFilter =
-            "DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)";
+  // @desc    Find booking service by ID
+  static async findById(id) {
+    try {
+      const query = `
+        SELECT bs.*, s.name as service_name, s.description as service_description,
+               s.category as service_category, b.user_id
+        FROM booking_services bs
+        JOIN services s ON bs.service_id = s.id
+        JOIN bookings b ON bs.booking_id = b.id
+        WHERE bs.id = ?
+      `;
+      const results = await executeQuery(query, [id]);
+      return results.length > 0 ? new BookingService(results[0]) : null;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // @desc    Check if service is already added to booking
+  static async findByBookingAndService(bookingId, serviceId) {
+    try {
+      const query =
+        "SELECT * FROM booking_services WHERE booking_id = ? AND service_id = ?";
+      const results = await executeQuery(query, [bookingId, serviceId]);
+      return results.length > 0 ? new BookingService(results[0]) : null;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // @desc    Add service to booking
+  static async addToBooking(bookingId, serviceId, quantity = 1) {
+    const connection = await getConnection();
+
+    try {
+      await connection.beginTransaction();
+
+      // Validate booking exists and is in valid status
+      const bookingQuery = "SELECT id, status FROM bookings WHERE id = ?";
+      const bookingResult = await connection.execute(bookingQuery, [bookingId]);
+
+      if (bookingResult[0].length === 0) {
+        throw new Error("Booking not found");
       }
 
-      const [rows] = await pool.execute(`
+      const booking = bookingResult[0][0];
+      if (!["pending", "confirmed", "checked_in"].includes(booking.status)) {
+        throw new Error("Cannot add services to this booking");
+      }
+
+      // Validate service exists and is active
+      const serviceQuery =
+        "SELECT id, name, price, is_active FROM services WHERE id = ?";
+      const serviceResult = await connection.execute(serviceQuery, [serviceId]);
+
+      if (serviceResult[0].length === 0) {
+        throw new Error("Service not found");
+      }
+
+      const service = serviceResult[0][0];
+      if (!service.is_active) {
+        throw new Error("Service is not available");
+      }
+
+      // Check if service is already added to this booking
+      const existingQuery =
+        "SELECT id, quantity FROM booking_services WHERE booking_id = ? AND service_id = ?";
+      const existingResult = await connection.execute(existingQuery, [
+        bookingId,
+        serviceId,
+      ]);
+
+      let bookingServiceId;
+
+      if (existingResult[0].length > 0) {
+        // Update existing service quantity
+        const existingService = existingResult[0][0];
+        const newQuantity = existingService.quantity + quantity;
+
+        const updateQuery =
+          "UPDATE booking_services SET quantity = ? WHERE id = ?";
+        await connection.execute(updateQuery, [
+          newQuantity,
+          existingService.id,
+        ]);
+
+        bookingServiceId = existingService.id;
+      } else {
+        // Add new service to booking
+        const totalPrice = service.price * quantity;
+        const insertQuery = `
+          INSERT INTO booking_services (booking_id, service_id, quantity, unit_price, total_price)
+          VALUES (?, ?, ?, ?, ?)
+        `;
+        const insertResult = await connection.execute(insertQuery, [
+          bookingId,
+          serviceId,
+          quantity,
+          service.price,
+          totalPrice,
+        ]);
+
+        bookingServiceId = insertResult[0].insertId;
+      }
+
+      // Update booking total amount
+      await this.updateBookingTotal(connection, bookingId);
+
+      await connection.commit();
+      return await BookingService.findById(bookingServiceId);
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
+  // @desc    Update booking total amount
+  static async updateBookingTotal(connection, bookingId) {
+    try {
+      // Calculate new total including services
+      const totalQuery = `
         SELECT 
-          SUM(total_price) as total_revenue,
-          COUNT(*) as total_bookings,
-          AVG(total_price) as avg_price
-        FROM booking_services
-        WHERE status IN ('confirmed', 'completed') AND ${dateFilter}
-      `);
+          (SELECT DATEDIFF(check_out_date, check_in_date) * r.price_per_night 
+           FROM bookings b 
+           JOIN rooms r ON b.room_id = r.id 
+           WHERE b.id = ?) +
+          COALESCE(SUM(bs.total_price), 0) as new_total
+        FROM booking_services bs
+        WHERE bs.booking_id = ?
+      `;
 
-      return rows[0];
+      const totalResult = await connection.execute(totalQuery, [
+        bookingId,
+        bookingId,
+      ]);
+      const newTotal = totalResult[0][0].new_total;
+
+      // Update booking total
+      const updateQuery = "UPDATE bookings SET total_amount = ? WHERE id = ?";
+      await connection.execute(updateQuery, [newTotal, bookingId]);
     } catch (error) {
-      throw new Error(
-        `Error getting booking services revenue: ${error.message}`
-      );
+      throw error;
     }
   }
 
-  /**
-   * Delete booking service
-   */
-  static async delete(booking_service_id) {
+  // @desc    Get service statistics for a booking
+  static async getBookingServiceStats(bookingId) {
     try {
-      await pool.execute(
-        "DELETE FROM booking_services WHERE booking_service_id = ?",
-        [booking_service_id]
-      );
+      const query = `
+        SELECT 
+          COUNT(*) as total_services,
+          SUM(quantity) as total_quantity,
+          SUM(total_price) as total_service_amount,
+          AVG(unit_price) as avg_service_price
+        FROM booking_services
+        WHERE booking_id = ?
+      `;
+      const results = await executeQuery(query, [bookingId]);
+      return results[0];
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // @desc    Get popular services statistics
+  static async getPopularServicesStats(startDate = null, endDate = null) {
+    try {
+      let query = `
+        SELECT s.id, s.name, s.category, s.price,
+               COUNT(bs.id) as booking_count,
+               SUM(bs.quantity) as total_quantity,
+               SUM(bs.total_price) as total_revenue
+        FROM services s
+        LEFT JOIN booking_services bs ON s.id = bs.service_id
+        LEFT JOIN bookings b ON bs.booking_id = b.id
+        WHERE s.is_active = TRUE
+      `;
+      const params = [];
+
+      if (startDate && endDate) {
+        query += " AND DATE(bs.created_at) BETWEEN ? AND ?";
+        params.push(startDate, endDate);
+      }
+
+      query += `
+        GROUP BY s.id, s.name, s.category, s.price
+        ORDER BY booking_count DESC, total_revenue DESC
+      `;
+
+      const results = await executeQuery(query, params);
+      return results;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Instance methods
+
+  // @desc    Update service quantity
+  async updateQuantity(newQuantity) {
+    const connection = await getConnection();
+
+    try {
+      await connection.beginTransaction();
+
+      if (newQuantity <= 0) {
+        // Remove service if quantity is 0 or negative
+        await this.remove();
+        return null;
+      }
+
+      const newTotalPrice = this.unit_price * newQuantity;
+      const query =
+        "UPDATE booking_services SET quantity = ?, total_price = ? WHERE id = ?";
+      await connection.execute(query, [newQuantity, newTotalPrice, this.id]);
+
+      // Update booking total
+      await BookingService.updateBookingTotal(connection, this.booking_id);
+
+      await connection.commit();
+      return await BookingService.findById(this.id);
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
+  // @desc    Update service price
+  async updatePrice(newPrice) {
+    const connection = await getConnection();
+
+    try {
+      await connection.beginTransaction();
+
+      const newTotalPrice = newPrice * this.quantity;
+      const query =
+        "UPDATE booking_services SET unit_price = ?, total_price = ? WHERE id = ?";
+      await connection.execute(query, [newPrice, newTotalPrice, this.id]);
+
+      // Update booking total
+      await BookingService.updateBookingTotal(connection, this.booking_id);
+
+      await connection.commit();
+      return await BookingService.findById(this.id);
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
+  // @desc    Remove service from booking
+  async remove() {
+    const connection = await getConnection();
+
+    try {
+      await connection.beginTransaction();
+
+      const query = "DELETE FROM booking_services WHERE id = ?";
+      await connection.execute(query, [this.id]);
+
+      // Update booking total
+      await BookingService.updateBookingTotal(connection, this.booking_id);
+
+      await connection.commit();
       return true;
     } catch (error) {
-      throw new Error(`Error deleting booking service: ${error.message}`);
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
     }
   }
 
+  // @desc    Get total amount for this service
+  getTotalAmount() {
+    return this.total_price || this.quantity * this.unit_price;
+  }
+
+  // @desc    Get formatted total amount
+  getFormattedTotalAmount() {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+    }).format(this.getTotalAmount());
+  }
+
+  // @desc    Get formatted unit price
+  getFormattedPrice() {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+    }).format(this.unit_price);
+  }
+
+  // @desc    Get JSON representation
   toJSON() {
     return {
-      booking_service_id: this.booking_service_id,
-      booking_id: this.booking_id,
-      service_id: this.service_id,
-      quantity: this.quantity,
-      unit_price: this.unit_price,
-      total_price: this.total_price,
-      service_date: this.service_date,
-      service_time: this.service_time,
-      status: this.status,
-      notes: this.notes,
-      created_at: this.created_at,
-      updated_at: this.updated_at,
-      // Include service details if available
-      service_name: this.service_name,
-      service_type: this.service_type,
-      description: this.description,
-      images: this.images,
-      // Include booking details if available
-      booking_code: this.booking_code,
-      check_in_date: this.check_in_date,
-      check_out_date: this.check_out_date,
+      ...this,
+      total_amount: this.getTotalAmount(),
+      formatted_price: this.getFormattedPrice(),
+      formatted_total_amount: this.getFormattedTotalAmount(),
     };
   }
 }

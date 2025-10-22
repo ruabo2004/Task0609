@@ -1,0 +1,1056 @@
+═══════════════════════════════════════════════════════════════════════════════
+                    HỆ THỐNG QUẢN LÝ HOMESTAY - DANH SÁCH CHỨC NĂNG
+═══════════════════════════════════════════════════════════════════════════════
+
+📋 MỤC LỤC
+─────────────────────────────────────────────────────────────────────────────
+1. Tổng quan hệ thống
+2. Module Xác thực & Phân quyền
+3. Module Khách hàng (Customer)
+4. Module Nhân viên (Staff)
+5. Module Quản trị (Admin)
+6. Các API Endpoints chi tiết
+7. Cấu trúc Database
+8. Tính năng nâng cao
+
+═══════════════════════════════════════════════════════════════════════════════
+1. TỔNG QUAN HỆ THỐNG
+═══════════════════════════════════════════════════════════════════════════════
+
+🎯 Mô tả dự án:
+   - Hệ thống quản lý homestay với đầy đủ chức năng đặt phòng, thanh toán và quản lý
+   - Frontend: React + Vite + TailwindCSS
+   - Backend: Node.js + Express
+   - Database: MySQL
+   - Payment Gateway: VNPay, MoMo
+
+👥 Phân quyền người dùng:
+   ┌────────────────┬──────────────────────────────────────────────────────┐
+   │ ROLE           │ QUYỀN HẠN                                            │
+   ├────────────────┼──────────────────────────────────────────────────────┤
+   │ Customer       │ Đặt phòng, xem phòng, thanh toán, đánh giá          │
+   │ Staff          │ Quản lý booking, thêm dịch vụ, check-in/out         │
+   │ Admin          │ CRUD phòng/nhân viên/dịch vụ, báo cáo, thống kê     │
+   └────────────────┴──────────────────────────────────────────────────────┘
+
+🌐 URL Routes:
+   - Homepage: http://localhost:5173/
+   - Đăng nhập: http://localhost:5173/auth/login
+   - Đăng ký: http://localhost:5173/auth/register
+   - Danh sách phòng: http://localhost:5173/rooms
+   - Admin Dashboard: http://localhost:5173/admin/dashboard
+   - Staff Dashboard: http://localhost:5173/staff/dashboard
+   - Customer Profile: http://localhost:5173/customer/profile
+
+═══════════════════════════════════════════════════════════════════════════════
+2. MODULE XÁC THỰC & PHÂN QUYỀN (AUTHENTICATION & AUTHORIZATION)
+═══════════════════════════════════════════════════════════════════════════════
+
+🔐 CHỨC NĂNG XÁC THỰC:
+
+   ✅ Đăng ký tài khoản mới (Customer)
+      - POST /api/auth/register
+      - Nhập: email, password, fullName, phoneNumber, ID number
+      - Validation: email unique, password mạnh, ID number unique
+      - Tự động assign role = 'customer'
+
+   ✅ Đăng nhập
+      - POST /api/auth/login
+      - Nhập: email/username, password
+      - Trả về: accessToken, refreshToken, user info
+      - Token expires: 24h (access), 7 days (refresh)
+
+   ✅ Làm mới token
+      - POST /api/auth/refresh
+      - Sử dụng refreshToken để lấy accessToken mới
+      - Tự động gia hạn phiên đăng nhập
+
+   ✅ Đăng xuất
+      - POST /api/auth/logout
+      - Xóa token khỏi server và client storage
+
+   ✅ Quên mật khẩu
+      - POST /api/auth/forgot-password
+      - Gửi link reset password qua email
+      - Token reset có thời hạn 1 giờ
+
+   ✅ Đặt lại mật khẩu
+      - POST /api/auth/reset-password
+      - Xác thực token reset và cập nhật password mới
+
+   ✅ Đổi mật khẩu
+      - POST /api/auth/change-password
+      - Yêu cầu: oldPassword, newPassword
+      - Đã đăng nhập
+
+   ✅ Lấy thông tin user hiện tại
+      - GET /api/auth/me
+      - Trả về: profile, role, permissions
+
+   ✅ Tra cứu tài khoản theo CMND/CCCD
+      - POST /api/auth/lookup-account
+      - Tìm tài khoản dựa vào số ID
+
+🛡️ MIDDLEWARE BẢO MẬT:
+   - authenticate: Kiểm tra JWT token hợp lệ
+   - authorize(roles): Kiểm tra quyền truy cập theo role
+   - rate limiting: Giới hạn số request để chống brute force
+   - input validation: Validate tất cả input từ client
+
+═══════════════════════════════════════════════════════════════════════════════
+3. MODULE KHÁCH HÀNG (CUSTOMER-FACING)
+═══════════════════════════════════════════════════════════════════════════════
+
+📱 GIAO DIỆN CÔNG CỘNG (PUBLIC PAGES):
+
+   🏠 Trang chủ
+      - URL: /
+      - Hiển thị: Banner, featured rooms, reviews, services
+      - Form tìm kiếm nhanh: checkIn, checkOut, guests
+
+   🏨 Danh sách phòng
+      - URL: /rooms
+      - GET /api/rooms
+      - Bộ lọc:
+         * Loại phòng (single, double, suite, family)
+         * Khoảng giá (dưới 500k, 500k-1tr, 1tr-2tr, trên 2tr)
+         * Ngày check-in/check-out
+         * Số khách
+         * Tiện nghi (WiFi, TV, minibar, parking)
+         * Sắp xếp (giá, rating, tên)
+      - Pagination: 6/9/12 phòng per page
+      - Responsive grid layout
+
+   🔍 Chi tiết phòng
+      - URL: /rooms/:id
+      - GET /api/rooms/:id
+      - Hiển thị:
+         * Gallery ảnh (slider)
+         * Thông tin chi tiết (capacity, size, type)
+         * Danh sách tiện nghi
+         * Giá phòng (per night)
+         * Form đặt phòng
+         * Đánh giá và reviews
+         * Similar rooms
+      - GET /api/rooms/:id/reviews: Lấy reviews
+      - GET /api/rooms/:id/booked-dates: Lấy ngày đã đặt
+
+   📝 Trang đặt phòng
+      - URL: /booking/new?roomId=...
+      - Form booking:
+         * Thông tin khách hàng
+         * Ngày check-in/out
+         * Số khách
+         * Chọn dịch vụ bổ sung
+         * Ghi chú đặc biệt
+      - POST /api/bookings/check-availability: Kiểm tra phòng trống
+      - POST /api/bookings: Tạo booking mới
+      - Tự động chuyển sang thanh toán
+
+   💳 Thanh toán
+      - Tích hợp VNPay và MoMo
+      - POST /api/payments/momo/create: Tạo payment URL MoMo
+      - GET /api/payments/momo/callback: MoMo callback
+      - GET /api/payments/momo/notify: MoMo IPN
+      - Redirect về:
+         * /payment/success: Thanh toán thành công
+         * /payment/failed: Thanh toán thất bại
+
+   ℹ️ Trang giới thiệu
+      - URL: /about
+      - Thông tin về homestay
+
+   📞 Trang liên hệ
+      - URL: /contact
+      - Form liên hệ
+      - Thông tin liên lạc
+
+👤 TRANG CÁ NHÂN (CUSTOMER AUTHENTICATED):
+
+   📊 Dashboard khách hàng
+      - URL: /customer/dashboard
+      - Tổng quan: bookings stats, upcoming stays
+
+   📅 Lịch sử đặt phòng
+      - URL: /customer/bookings
+      - GET /api/bookings/my-bookings
+      - GET /api/bookings/user
+      - Hiển thị:
+         * Booking đang chờ (pending)
+         * Booking đã xác nhận (confirmed)
+         * Booking đã hoàn thành (completed)
+         * Booking đã hủy (cancelled)
+      - Actions:
+         * Xem chi tiết
+         * Hủy booking (nếu còn thời gian)
+         * Đánh giá (nếu completed)
+
+   🔍 Chi tiết booking
+      - URL: /customer/bookings/:id
+      - GET /api/bookings/:id
+      - Hiển thị:
+         * Thông tin phòng
+         * Ngày check-in/out
+         * Dịch vụ đã đặt
+         * Trạng thái thanh toán
+         * Tổng tiền
+         * Timeline trạng thái
+      - Actions:
+         * PUT /api/bookings/:id/cancel: Hủy booking
+
+   👤 Hồ sơ cá nhân
+      - URL: /customer/profile
+      - GET /api/users/profile
+      - PUT /api/users/profile
+      - Cập nhật:
+         * Thông tin cá nhân
+         * Ảnh đại diện
+         * Email, phone
+         * Địa chỉ
+      - Thống kê cá nhân:
+         * Tổng số đặt phòng
+         * Tổng chi tiêu
+         * Membership level
+
+   ⭐ Đánh giá & Reviews
+      - POST /api/reviews
+      - Điều kiện: Phải có booking completed
+      - Đánh giá: 1-5 sao + comment
+      - Upload ảnh review
+
+═══════════════════════════════════════════════════════════════════════════════
+4. MODULE NHÂN VIÊN (STAFF)
+═══════════════════════════════════════════════════════════════════════════════
+
+🎯 DASHBOARD NHÂN VIÊN:
+   - URL: /staff/dashboard
+   - Thống kê:
+      * Booking hôm nay
+      * Check-in hôm nay
+      * Check-out hôm nay
+      * Phòng đang sử dụng
+
+📋 QUẢN LÝ ĐẶT PHÒNG:
+
+   📊 Danh sách booking
+      - URL: /staff/bookings
+      - GET /api/bookings (staff access)
+      - GET /api/bookings/stats
+      - Bộ lọc:
+         * Trạng thái (pending, confirmed, checked-in, completed, cancelled)
+         * Ngày check-in/out
+         * Tìm theo tên khách, số phòng
+         * Payment status
+      - Actions mỗi booking:
+
+         ✅ Xác nhận booking
+            - PUT /api/bookings/:id/confirm
+            - Chuyển từ pending → confirmed
+
+         🏨 Check-in khách
+            - PUT /api/bookings/:id/checkin
+            - Chuyển từ confirmed → checked-in
+            - Ghi nhận thời gian check-in thực tế
+
+         🚪 Check-out khách
+            - PUT /api/bookings/:id/checkout
+            - Chuyển từ checked-in → completed
+            - Ghi nhận thời gian check-out
+            - Tính toán phí phát sinh (nếu có)
+
+         ❌ Hủy booking
+            - PUT /api/bookings/:id/cancel
+            - Ghi rõ lý do hủy
+            - Xử lý hoàn tiền (nếu cần)
+
+         🛎️ Thêm dịch vụ
+            - POST /api/bookings/:id/services
+            - Thêm service vào booking đang active
+            - Tự động cập nhật totalAmount
+
+         ➖ Xóa dịch vụ
+            - DELETE /api/bookings/:bookingId/services/:bookingServiceId
+            - Xóa service khỏi booking
+            - Cập nhật lại tổng tiền
+
+   🔍 Tìm kiếm booking
+      - GET /api/bookings/search
+      - Tìm theo: customer name, room number, booking ID, phone
+
+   📅 Calendar View
+      - Hiển thị booking theo dạng lịch
+      - Dễ dàng xem phòng trống/đã đặt theo ngày
+
+🛎️ QUẢN LÝ DỊCH VỤ:
+   - Xem danh sách dịch vụ: GET /api/services
+   - Thêm service vào booking đang active
+   - Tính toán và cập nhật bill
+
+👤 HỒ SƠ NHÂN VIÊN:
+   - URL: /staff/profile
+   - Xem và cập nhật thông tin cá nhân
+   - Lịch làm việc
+   - Hiệu suất công việc
+
+═══════════════════════════════════════════════════════════════════════════════
+5. MODULE QUẢN TRỊ (ADMIN)
+═══════════════════════════════════════════════════════════════════════════════
+
+🎯 DASHBOARD ADMIN:
+   - URL: /admin/dashboard
+   - GET /api/admin/dashboard
+   
+   📊 Thống kê tổng quan:
+      * Doanh thu hôm nay/tuần/tháng/năm
+      * Số booking mới
+      * Tỷ lệ lấp đầy phòng
+      * Tổng số khách
+      * Revenue by room type
+      * Payment methods distribution
+      
+   📈 Biểu đồ:
+      * Biểu đồ đường: Doanh thu theo thời gian
+      * Biểu đồ tròn: Phân bổ loại phòng
+      * Biểu đồ cột: Bookings theo tháng
+      * Biểu đồ area: Occupancy rate
+
+🏨 QUẢN LÝ PHÒNG (CRUD):
+   - URL: /admin/rooms
+   
+   📋 Danh sách phòng
+      - GET /api/admin/rooms (hoặc /api/rooms)
+      - GET /api/rooms/stats
+      - Hiển thị: room number, type, status, price, capacity
+      - Filter: type, status, price range
+      - Sort: price, room number, type
+      
+   ➕ Thêm phòng mới
+      - POST /api/rooms
+      - Thông tin:
+         * Room number (unique)
+         * Name
+         * Type (single, double, suite, family)
+         * Description
+         * Price per night
+         * Capacity
+         * Size (m²)
+         * Floor
+         * Amenities (array)
+         * Status (available, occupied, maintenance)
+         * Images (multiple upload)
+      
+   ✏️ Sửa phòng
+      - PUT /api/rooms/:id
+      - Cập nhật: thông tin, giá, tiện nghi, ảnh
+      
+   🗑️ Xóa phòng
+      - DELETE /api/rooms/:id
+      - Soft delete (chỉ ẩn, không xóa hẳn)
+      - Kiểm tra: không có booking active
+      
+   🖼️ Upload ảnh phòng
+      - POST /api/rooms/:id/images
+      - Multiple images
+      - Resize và optimize
+      - Store: /uploads/rooms/
+      
+   🔄 Cập nhật trạng thái
+      - PUT /api/rooms/:id/status
+      - Status: available, occupied, maintenance, cleaning
+      
+   📊 Thống kê phòng
+      - GET /api/rooms/:id/bookings
+      - Booking history của phòng
+      - Revenue by room
+
+👥 QUẢN LÝ NGƯỜI DÙNG (CRUD):
+   - URL: /admin/users
+   
+   📋 Danh sách users
+      - GET /api/users (admin access)
+      - Filter theo role: customer, staff, admin
+      - Search: name, email, phone
+      - Sort: createdAt, name, email
+      
+   ➕ Thêm user mới (Staff/Admin)
+      - POST /api/users (admin only)
+      - Thông tin:
+         * Email (unique)
+         * Password (auto-generate hoặc manual)
+         * Full name
+         * Phone
+         * Role (staff/admin)
+         * ID number
+         * Address
+         * Avatar
+      
+   ✏️ Sửa user
+      - PUT /api/users/:id
+      - Cập nhật: info, role, status
+      - Không được sửa email (unique identifier)
+      
+   🗑️ Xóa user
+      - DELETE /api/users/:id
+      - Soft delete
+      - Không xóa nếu có booking active
+      
+   🔒 Reset password
+      - POST /api/users/:id/reset-password
+      - Gửi email với temporary password
+      
+   📊 Thống kê user
+      - Tổng số customers, staff, admin
+      - New registrations theo thời gian
+      - Customer lifetime value
+
+🛎️ QUẢN LÝ DỊCH VỤ (CRUD):
+   - URL: /admin/services
+   
+   📋 Danh sách dịch vụ
+      - GET /api/services
+      - GET /api/services/stats
+      - Hiển thị: name, price, category, status
+      
+   ➕ Thêm dịch vụ mới
+      - POST /api/services
+      - Thông tin:
+         * Service name
+         * Description
+         * Price
+         * Unit (lần, ngày, người, ...)
+         * Category (food, transport, spa, laundry, ...)
+         * Status (active/inactive)
+         * Icon/Image
+      
+   ✏️ Sửa dịch vụ
+      - PUT /api/services/:id
+      - Cập nhật: name, price, description
+      
+   🗑️ Xóa dịch vụ
+      - DELETE /api/services/:id
+      - Soft delete
+      
+   ✅ Kích hoạt/Vô hiệu hóa
+      - PUT /api/services/:id/activate
+      - PUT /api/services/:id/deactivate
+      
+   📊 Thống kê dịch vụ
+      - GET /api/services/:id/booking-stats
+      - GET /api/services/:id/usage
+      - Dịch vụ phổ biến nhất
+      - Revenue by service
+
+📋 QUẢN LÝ BOOKING (FULL ACCESS):
+   - URL: /admin/bookings
+   - Tất cả quyền của Staff +
+   - Xem tất cả bookings của toàn bộ hệ thống
+   - Export danh sách bookings
+   - Bulk actions (cancel multiple, confirm multiple)
+
+💰 QUẢN LÝ THANH TOÁN:
+   - URL: /admin/payments (chưa có UI riêng)
+   
+   📋 Danh sách payments
+      - GET /api/payments
+      - GET /api/payments/stats
+      - Filter: method, status, date range
+      
+   📊 Báo cáo doanh thu
+      - GET /api/payments/revenue
+      - Doanh thu theo: ngày, tuần, tháng, năm
+      - Group by: payment method, room type
+      
+   🔄 Cập nhật trạng thái payment
+      - PUT /api/payments/:id/status
+      - Manual update: pending → paid/failed
+      
+   💵 Xử lý hoàn tiền
+      - POST /api/payments/:id/refund
+      - Ghi nhận lý do hoàn tiền
+      - Tính toán số tiền hoàn lại
+
+📊 BÁO CÁO & THỐNG KÊ:
+   
+   💰 Báo cáo doanh thu
+      - GET /api/reports/revenue
+      - Filter: daily, weekly, monthly, yearly
+      - Export: PDF, Excel
+      - Biểu đồ xu hướng
+      
+   🏨 Tỷ lệ lấp đầy phòng
+      - GET /api/reports/occupancy
+      - Formula: (Booked nights / (Total rooms * Days)) × 100%
+      - Theo room type
+      - Theo thời gian
+      
+   📅 Thống kê booking
+      - GET /api/reports/bookings
+      - Số lượng booking theo trạng thái
+      - Average booking value
+      - Conversion rate
+      
+   👥 Thống kê khách hàng
+      - New vs Returning customers
+      - Customer demographics
+      - Top customers by revenue
+      
+   ⭐ Đánh giá & Feedback
+      - GET /api/reviews
+      - Average rating
+      - Reviews by room
+      - Sentiment analysis
+
+═══════════════════════════════════════════════════════════════════════════════
+6. CHI TIẾT CÁC API ENDPOINTS
+═══════════════════════════════════════════════════════════════════════════════
+
+📌 BASE URL: http://localhost:5000/api
+
+🔐 AUTHENTICATION ROUTES (/api/auth):
+   ┌──────────┬────────────────────────┬─────────┬─────────────────────────────┐
+   │ METHOD   │ ENDPOINT               │ ACCESS  │ DESCRIPTION                 │
+   ├──────────┼────────────────────────┼─────────┼─────────────────────────────┤
+   │ POST     │ /register              │ Public  │ Đăng ký customer            │
+   │ POST     │ /login                 │ Public  │ Đăng nhập                   │
+   │ POST     │ /refresh               │ Public  │ Refresh token               │
+   │ POST     │ /logout                │ Private │ Đăng xuất                   │
+   │ POST     │ /change-password       │ Private │ Đổi mật khẩu                │
+   │ GET      │ /me                    │ Private │ Lấy thông tin user          │
+   │ POST     │ /forgot-password       │ Public  │ Quên mật khẩu               │
+   │ POST     │ /reset-password        │ Public  │ Reset mật khẩu              │
+   │ POST     │ /lookup-account        │ Public  │ Tra cứu theo ID number      │
+   └──────────┴────────────────────────┴─────────┴─────────────────────────────┘
+
+👥 USER ROUTES (/api/users):
+   ┌──────────┬────────────────────────┬─────────┬─────────────────────────────┐
+   │ METHOD   │ ENDPOINT               │ ACCESS  │ DESCRIPTION                 │
+   ├──────────┼────────────────────────┼─────────┼─────────────────────────────┤
+   │ GET      │ /                      │ Admin   │ Lấy danh sách users         │
+   │ GET      │ /profile               │ Private │ Lấy profile của mình        │
+   │ PUT      │ /profile               │ Private │ Cập nhật profile            │
+   │ POST     │ /                      │ Admin   │ Tạo user mới (staff/admin)  │
+   │ PUT      │ /:id                   │ Admin   │ Cập nhật user               │
+   │ DELETE   │ /:id                   │ Admin   │ Xóa user                    │
+   │ POST     │ /:id/reset-password    │ Admin   │ Reset password user         │
+   └──────────┴────────────────────────┴─────────┴─────────────────────────────┘
+
+🏨 ROOM ROUTES (/api/rooms):
+   ┌──────────┬────────────────────────┬─────────┬─────────────────────────────┐
+   │ METHOD   │ ENDPOINT               │ ACCESS  │ DESCRIPTION                 │
+   ├──────────┼────────────────────────┼─────────┼─────────────────────────────┤
+   │ GET      │ /                      │ Public  │ Danh sách phòng (filter)    │
+   │ GET      │ /available             │ Public  │ Phòng trống theo ngày       │
+   │ GET      │ /types                 │ Public  │ Các loại phòng              │
+   │ GET      │ /stats                 │ Staff   │ Thống kê phòng              │
+   │ GET      │ /search                │ Public  │ Tìm kiếm phòng              │
+   │ GET      │ /:id                   │ Public  │ Chi tiết phòng              │
+   │ GET      │ /:id/booked-dates      │ Public  │ Ngày đã đặt                 │
+   │ GET      │ /:id/reviews           │ Public  │ Reviews của phòng           │
+   │ GET      │ /:id/bookings          │ Staff   │ Booking history             │
+   │ POST     │ /                      │ Staff   │ Tạo phòng mới               │
+   │ PUT      │ /:id                   │ Staff   │ Cập nhật phòng              │
+   │ DELETE   │ /:id                   │ Admin   │ Xóa phòng                   │
+   │ POST     │ /:id/images            │ Staff   │ Upload ảnh phòng            │
+   │ PUT      │ /:id/status            │ Staff   │ Cập nhật trạng thái         │
+   └──────────┴────────────────────────┴─────────┴─────────────────────────────┘
+
+📅 BOOKING ROUTES (/api/bookings):
+   ┌──────────┬─────────────────────────────┬─────────┬────────────────────────┐
+   │ METHOD   │ ENDPOINT                    │ ACCESS  │ DESCRIPTION            │
+   ├──────────┼─────────────────────────────┼─────────┼────────────────────────┤
+   │ GET      │ /                           │ Staff   │ All bookings           │
+   │ GET      │ /stats                      │ Staff   │ Booking statistics     │
+   │ GET      │ /search                     │ Staff   │ Search bookings        │
+   │ GET      │ /user                       │ Private │ My bookings            │
+   │ GET      │ /my-bookings                │ Private │ My bookings (alias)    │
+   │ GET      │ /user/stats                 │ Private │ My booking stats       │
+   │ GET      │ /:id                        │ Private │ Booking detail         │
+   │ GET      │ /:id/services               │ Private │ Booking services       │
+   │ POST     │ /check-availability         │ Public  │ Check phòng trống      │
+   │ POST     │ /                           │ Private │ Tạo booking mới        │
+   │ PUT      │ /:id                        │ Private │ Cập nhật booking       │
+   │ PUT      │ /:id/cancel                 │ Private │ Hủy booking            │
+   │ PUT      │ /:id/confirm                │ Staff   │ Xác nhận booking       │
+   │ PUT      │ /:id/checkin                │ Staff   │ Check-in               │
+   │ PUT      │ /:id/checkout               │ Staff   │ Check-out              │
+   │ POST     │ /:id/services               │ Private │ Thêm service           │
+   │ DELETE   │ /:bookingId/services/:svcId │ Private │ Xóa service            │
+   └──────────┴─────────────────────────────┴─────────┴────────────────────────┘
+
+💳 PAYMENT ROUTES (/api/payments):
+   ┌──────────┬────────────────────────┬─────────┬─────────────────────────────┐
+   │ METHOD   │ ENDPOINT               │ ACCESS  │ DESCRIPTION                 │
+   ├──────────┼────────────────────────┼─────────┼─────────────────────────────┤
+   │ GET      │ /                      │ Staff   │ All payments                │
+   │ GET      │ /stats                 │ Staff   │ Payment statistics          │
+   │ GET      │ /revenue               │ Staff   │ Revenue by date range       │
+   │ GET      │ /user                  │ Private │ My payments                 │
+   │ GET      │ /booking/:bookingId    │ Private │ Payments by booking         │
+   │ GET      │ /:id                   │ Private │ Payment detail              │
+   │ POST     │ /                      │ Private │ Create payment              │
+   │ PUT      │ /:id/status            │ Staff   │ Update payment status       │
+   │ PUT      │ /:id                   │ Staff   │ Update payment              │
+   │ POST     │ /:id/refund            │ Admin   │ Process refund              │
+   └──────────┴────────────────────────┴─────────┴─────────────────────────────┘
+
+💰 MOMO PAYMENT ROUTES (/api/payments/momo):
+   ┌──────────┬────────────────────────┬─────────┬─────────────────────────────┐
+   │ METHOD   │ ENDPOINT               │ ACCESS  │ DESCRIPTION                 │
+   ├──────────┼────────────────────────┼─────────┼─────────────────────────────┤
+   │ POST     │ /create                │ Private │ Tạo MoMo payment URL        │
+   │ GET      │ /callback              │ Public  │ MoMo callback (redirect)    │
+   │ POST     │ /notify                │ Public  │ MoMo IPN notification       │
+   └──────────┴────────────────────────┴─────────┴─────────────────────────────┘
+
+🛎️ SERVICE ROUTES (/api/services):
+   ┌──────────┬────────────────────────┬─────────┬─────────────────────────────┐
+   │ METHOD   │ ENDPOINT               │ ACCESS  │ DESCRIPTION                 │
+   ├──────────┼────────────────────────┼─────────┼─────────────────────────────┤
+   │ GET      │ /                      │ Public  │ All services                │
+   │ GET      │ /active                │ Public  │ Active services only        │
+   │ GET      │ /categories            │ Public  │ Service categories          │
+   │ GET      │ /popular               │ Public  │ Popular services            │
+   │ GET      │ /stats                 │ Staff   │ Service statistics          │
+   │ GET      │ /category/:category    │ Public  │ Services by category        │
+   │ GET      │ /:id                   │ Public  │ Service detail              │
+   │ GET      │ /:id/booking-stats     │ Staff   │ Service booking stats       │
+   │ GET      │ /:id/usage             │ Staff   │ Service usage               │
+   │ POST     │ /                      │ Staff   │ Create service              │
+   │ PUT      │ /:id                   │ Staff   │ Update service              │
+   │ DELETE   │ /:id                   │ Admin   │ Delete service              │
+   │ PUT      │ /:id/activate          │ Staff   │ Activate service            │
+   │ PUT      │ /:id/deactivate        │ Staff   │ Deactivate service          │
+   └──────────┴────────────────────────┴─────────┴─────────────────────────────┘
+
+⭐ REVIEW ROUTES (/api/reviews):
+   ┌──────────┬────────────────────────┬─────────┬─────────────────────────────┐
+   │ METHOD   │ ENDPOINT               │ ACCESS  │ DESCRIPTION                 │
+   ├──────────┼────────────────────────┼─────────┼─────────────────────────────┤
+   │ GET      │ /                      │ Public  │ All reviews                 │
+   │ GET      │ /room/:roomId          │ Public  │ Reviews by room             │
+   │ GET      │ /:id                   │ Public  │ Review detail               │
+   │ POST     │ /                      │ Private │ Create review               │
+   │ PUT      │ /:id                   │ Private │ Update review (own)         │
+   │ DELETE   │ /:id                   │ Private │ Delete review (own/admin)   │
+   └──────────┴────────────────────────┴─────────┴─────────────────────────────┘
+
+📊 REPORT ROUTES (/api/reports):
+   ┌──────────┬────────────────────────┬─────────┬─────────────────────────────┐
+   │ METHOD   │ ENDPOINT               │ ACCESS  │ DESCRIPTION                 │
+   ├──────────┼────────────────────────┼─────────┼─────────────────────────────┤
+   │ GET      │ /revenue               │ Staff   │ Revenue report              │
+   │ GET      │ /occupancy             │ Staff   │ Occupancy rate              │
+   │ GET      │ /bookings              │ Staff   │ Booking statistics          │
+   └──────────┴────────────────────────┴─────────┴─────────────────────────────┘
+
+🎛️ ADMIN MODULE ROUTES (/api/admin):
+   ┌──────────┬─────────────────────────────┬─────────┬───────────────────────┐
+   │ METHOD   │ ENDPOINT                    │ ACCESS  │ DESCRIPTION           │
+   ├──────────┼─────────────────────────────┼─────────┼───────────────────────┤
+   │ GET      │ /dashboard                  │ Admin   │ Dashboard data        │
+   │ GET      │ /dashboard/stats            │ Admin   │ Statistics summary    │
+   │ GET      │ /rooms                      │ Admin   │ Manage rooms          │
+   │ GET      │ /services                   │ Admin   │ Manage services       │
+   │ GET      │ /bookings                   │ Admin   │ Manage bookings       │
+   │ GET      │ /customers                  │ Admin   │ Customer list         │
+   └──────────┴─────────────────────────────┴─────────┴───────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+7. CẤU TRÚC DATABASE
+═══════════════════════════════════════════════════════════════════════════════
+
+📊 CÁC BẢNG CHÍNH:
+
+   👤 users
+      ├─ id (INT, PK, AUTO_INCREMENT)
+      ├─ email (VARCHAR, UNIQUE)
+      ├─ password (VARCHAR, hashed)
+      ├─ full_name (VARCHAR)
+      ├─ phone_number (VARCHAR)
+      ├─ id_number (VARCHAR, UNIQUE) - CMND/CCCD
+      ├─ role (ENUM: 'customer', 'staff', 'admin')
+      ├─ status (ENUM: 'active', 'inactive', 'banned')
+      ├─ avatar_url (VARCHAR)
+      ├─ address (TEXT)
+      ├─ date_of_birth (DATE)
+      ├─ gender (ENUM: 'male', 'female', 'other')
+      ├─ reset_password_token (VARCHAR)
+      ├─ reset_password_expires (DATETIME)
+      ├─ created_at (DATETIME)
+      └─ updated_at (DATETIME)
+
+   🏠 rooms
+      ├─ id (INT, PK, AUTO_INCREMENT)
+      ├─ room_number (VARCHAR, UNIQUE)
+      ├─ name (VARCHAR)
+      ├─ room_type (ENUM: 'single', 'double', 'suite', 'family')
+      ├─ description (TEXT)
+      ├─ price_per_night (DECIMAL)
+      ├─ original_price (DECIMAL) - Giá gốc (để tính discount)
+      ├─ capacity (INT) - Số người tối đa
+      ├─ size (DECIMAL) - Diện tích m²
+      ├─ floor (INT)
+      ├─ bed_type (VARCHAR)
+      ├─ amenities (TEXT) - JSON array
+      ├─ images (TEXT) - JSON array of URLs
+      ├─ image_url (VARCHAR) - Primary image
+      ├─ status (ENUM: 'available', 'occupied', 'maintenance', 'cleaning')
+      ├─ rating (DECIMAL)
+      ├─ review_count (INT)
+      ├─ created_at (DATETIME)
+      └─ updated_at (DATETIME)
+
+   📅 bookings
+      ├─ id (INT, PK, AUTO_INCREMENT)
+      ├─ customer_id (INT, FK → users.id)
+      ├─ room_id (INT, FK → rooms.id)
+      ├─ check_in_date (DATE)
+      ├─ check_out_date (DATE)
+      ├─ actual_check_in (DATETIME) - Thời gian check-in thực tế
+      ├─ actual_check_out (DATETIME)
+      ├─ number_of_guests (INT)
+      ├─ total_amount (DECIMAL)
+      ├─ special_requests (TEXT)
+      ├─ booking_status (ENUM: 'pending', 'confirmed', 'checked-in', 
+      │                        'completed', 'cancelled')
+      ├─ payment_status (ENUM: 'pending', 'paid', 'partially_paid', 'refunded')
+      ├─ cancellation_reason (TEXT)
+      ├─ cancelled_at (DATETIME)
+      ├─ created_at (DATETIME)
+      └─ updated_at (DATETIME)
+
+   🛎️ services
+      ├─ id (INT, PK, AUTO_INCREMENT)
+      ├─ name (VARCHAR)
+      ├─ description (TEXT)
+      ├─ price (DECIMAL)
+      ├─ unit (VARCHAR) - 'lần', 'ngày', 'người'
+      ├─ category (VARCHAR) - 'food', 'transport', 'spa', 'laundry'
+      ├─ icon (VARCHAR)
+      ├─ image_url (VARCHAR)
+      ├─ status (ENUM: 'active', 'inactive')
+      ├─ created_at (DATETIME)
+      └─ updated_at (DATETIME)
+
+   🔗 booking_services
+      ├─ id (INT, PK, AUTO_INCREMENT)
+      ├─ booking_id (INT, FK → bookings.id)
+      ├─ service_id (INT, FK → services.id)
+      ├─ quantity (INT)
+      ├─ unit_price (DECIMAL) - Giá tại thời điểm đặt
+      ├─ total_price (DECIMAL)
+      ├─ created_at (DATETIME)
+      └─ updated_at (DATETIME)
+
+   💳 payments
+      ├─ id (INT, PK, AUTO_INCREMENT)
+      ├─ booking_id (INT, FK → bookings.id)
+      ├─ customer_id (INT, FK → users.id)
+      ├─ amount (DECIMAL)
+      ├─ payment_method (ENUM: 'cash', 'momo', 'vnpay', 'bank_transfer')
+      ├─ transaction_id (VARCHAR) - ID từ payment gateway
+      ├─ status (ENUM: 'pending', 'success', 'failed', 'refunded')
+      ├─ paid_at (DATETIME)
+      ├─ refund_amount (DECIMAL)
+      ├─ refund_reason (TEXT)
+      ├─ refunded_at (DATETIME)
+      ├─ notes (TEXT)
+      ├─ created_at (DATETIME)
+      └─ updated_at (DATETIME)
+
+   ⭐ reviews
+      ├─ id (INT, PK, AUTO_INCREMENT)
+      ├─ customer_id (INT, FK → users.id)
+      ├─ room_id (INT, FK → rooms.id)
+      ├─ booking_id (INT, FK → bookings.id)
+      ├─ rating (INT) - 1-5
+      ├─ comment (TEXT)
+      ├─ images (TEXT) - JSON array
+      ├─ response (TEXT) - Admin response
+      ├─ responded_at (DATETIME)
+      ├─ status (ENUM: 'pending', 'approved', 'rejected')
+      ├─ created_at (DATETIME)
+      └─ updated_at (DATETIME)
+
+   👨‍💼 staff_profiles (Optional - Thông tin bổ sung cho staff)
+      ├─ id (INT, PK, AUTO_INCREMENT)
+      ├─ user_id (INT, FK → users.id)
+      ├─ position (VARCHAR)
+      ├─ hire_date (DATE)
+      ├─ salary (DECIMAL)
+      ├─ department (VARCHAR)
+      ├─ emergency_contact (VARCHAR)
+      ├─ notes (TEXT)
+      └─ created_at (DATETIME)
+
+   📊 work_shifts (Optional - Quản lý ca làm việc)
+      ├─ id (INT, PK, AUTO_INCREMENT)
+      ├─ staff_id (INT, FK → users.id)
+      ├─ shift_date (DATE)
+      ├─ start_time (TIME)
+      ├─ end_time (TIME)
+      ├─ status (ENUM: 'scheduled', 'completed', 'absent')
+      └─ created_at (DATETIME)
+
+   ⏰ attendance_logs (Optional - Chấm công)
+      ├─ id (INT, PK, AUTO_INCREMENT)
+      ├─ staff_id (INT, FK → users.id)
+      ├─ check_in (DATETIME)
+      ├─ check_out (DATETIME)
+      ├─ notes (TEXT)
+      └─ created_at (DATETIME)
+
+═══════════════════════════════════════════════════════════════════════════════
+8. TÍNH NĂNG NÂNG CAO
+═══════════════════════════════════════════════════════════════════════════════
+
+🔔 THÔNG BÁO (NOTIFICATIONS):
+   - Thông báo real-time khi có booking mới
+   - Email confirmation khi đặt phòng thành công
+   - Email reminder trước ngày check-in
+   - SMS notification (optional)
+
+📧 EMAIL SYSTEM:
+   - Welcome email khi đăng ký
+   - Booking confirmation
+   - Payment receipt
+   - Check-in instructions
+   - Feedback request sau check-out
+   - Password reset email
+
+🔍 SEARCH & FILTER:
+   - Full-text search phòng
+   - Advanced filters (giá, loại, tiện nghi)
+   - Sort multiple columns
+   - Save search preferences
+
+📱 RESPONSIVE DESIGN:
+   - Mobile-first approach
+   - Touch-friendly interface
+   - Adaptive layouts
+   - Progressive Web App (PWA) ready
+
+🌐 MULTI-LANGUAGE (Future):
+   - Vietnamese (default)
+   - English
+   - i18n ready
+
+💾 DATA EXPORT:
+   - Export bookings to Excel
+   - Export reports to PDF
+   - Backup database
+   - Import bulk data
+
+📊 ANALYTICS:
+   - Google Analytics integration
+   - User behavior tracking
+   - Conversion funnel
+   - A/B testing ready
+
+🔒 SECURITY:
+   - JWT authentication
+   - Password hashing (bcrypt)
+   - HTTPS only
+   - SQL injection prevention
+   - XSS protection
+   - CSRF tokens
+   - Rate limiting
+   - Input validation & sanitization
+
+⚡ PERFORMANCE:
+   - Image optimization
+   - Lazy loading
+   - Caching (Redis ready)
+   - Database indexing
+   - Query optimization
+   - CDN for static assets
+
+🎨 UI/UX FEATURES:
+   - Loading skeletons
+   - Toast notifications
+   - Modal dialogs
+   - Drag & drop upload
+   - Date pickers
+   - Form validation
+   - Error boundaries
+   - Smooth transitions
+
+═══════════════════════════════════════════════════════════════════════════════
+9. WORKFLOW CHÍNH
+═══════════════════════════════════════════════════════════════════════════════
+
+📝 QUY TRÌNH ĐẶT PHÒNG:
+
+   1. Khách tìm phòng
+      └─> Chọn ngày check-in/out
+      └─> Chọn số khách
+      └─> Hệ thống lọc phòng trống
+      
+   2. Xem chi tiết phòng
+      └─> Xem ảnh, mô tả, tiện nghi
+      └─> Xem reviews
+      └─> Kiểm tra giá
+      
+   3. Điền form booking
+      └─> Thông tin cá nhân (nếu chưa đăng nhập → yêu cầu đăng nhập)
+      └─> Chọn dịch vụ bổ sung
+      └─> Ghi chú đặc biệt
+      └─> Xác nhận thông tin
+      
+   4. Thanh toán
+      └─> Chọn phương thức (MoMo/VNPay)
+      └─> Redirect to payment gateway
+      └─> Nhập thông tin thanh toán
+      └─> Xác nhận thanh toán
+      
+   5. Xử lý kết quả
+      ├─> Thành công:
+      │   ├─> Cập nhật booking_status = 'confirmed'
+      │   ├─> Cập nhật payment_status = 'paid'
+      │   ├─> Gửi email confirmation
+      │   └─> Redirect to success page
+      └─> Thất bại:
+          ├─> Giữ booking_status = 'pending'
+          ├─> Cho phép thử lại
+          └─> Redirect to failed page
+
+🏨 QUY TRÌNH CHECK-IN/OUT:
+
+   Check-in:
+   1. Staff tìm booking theo tên/số phòng/booking ID
+   2. Xác minh thông tin khách
+   3. Kiểm tra thanh toán
+   4. Click "Check-in"
+   5. Cập nhật booking_status = 'checked-in'
+   6. Ghi nhận actual_check_in time
+   7. Cập nhật room_status = 'occupied'
+   
+   Check-out:
+   1. Staff tìm booking đang active
+   2. Kiểm tra dịch vụ phát sinh
+   3. Tính toán bill cuối cùng
+   4. Thu phí bổ sung (nếu có)
+   5. Click "Check-out"
+   6. Cập nhật booking_status = 'completed'
+   7. Ghi nhận actual_check_out time
+   8. Cập nhật room_status = 'cleaning'
+   9. Yêu cầu khách đánh giá
+
+❌ QUY TRÌNH HỦY BOOKING:
+
+   Hủy bởi khách:
+   1. Khách vào "My Bookings"
+   2. Chọn booking cần hủy
+   3. Click "Cancel"
+   4. Nhập lý do hủy
+   5. Xác nhận
+   6. Cập nhật booking_status = 'cancelled'
+   7. Xử lý hoàn tiền (nếu đã thanh toán)
+   8. Gửi email thông báo
+   
+   Hủy bởi staff/admin:
+   1. Tương tự nhưng có thể hủy mọi booking
+   2. Ghi rõ lý do hủy
+   3. Thông báo cho khách
+
+═══════════════════════════════════════════════════════════════════════════════
+10. GHI CHÚ KỸ THUẬT
+═══════════════════════════════════════════════════════════════════════════════
+
+📦 TECH STACK:
+
+   Frontend:
+   ├─ React 18
+   ├─ React Router v6
+   ├─ TailwindCSS
+   ├─ Heroicons
+   ├─ Axios
+   ├─ React Hook Form
+   ├─ Date-fns
+   └─ Chart.js / Recharts
+
+   Backend:
+   ├─ Node.js
+   ├─ Express.js
+   ├─ MySQL
+   ├─ JWT (jsonwebtoken)
+   ├─ Bcrypt
+   ├─ Multer (file upload)
+   ├─ Nodemailer (email)
+   ├─ Morgan (logging)
+   └─ Express Validator
+
+   Dev Tools:
+   ├─ Vite
+   ├─ ESLint
+   ├─ Prettier
+   ├─ Nodemon
+   └─ Postman
+
+🔧 ENVIRONMENT VARIABLES:
+
+   Backend (.env):
+   ├─ PORT=5000
+   ├─ DB_HOST=localhost
+   ├─ DB_USER=root
+   ├─ DB_PASSWORD=
+   ├─ DB_NAME=homestay_db
+   ├─ JWT_SECRET=
+   ├─ JWT_EXPIRE=24h
+   ├─ MOMO_PARTNER_CODE=
+   ├─ MOMO_ACCESS_KEY=
+   ├─ MOMO_SECRET_KEY=
+   ├─ MOMO_ENDPOINT=
+   ├─ EMAIL_HOST=smtp.gmail.com
+   ├─ EMAIL_PORT=587
+   ├─ EMAIL_USER=
+   └─ EMAIL_PASS=
+
+   Frontend (.env):
+   ├─ VITE_API_URL=http://localhost:5000/api
+   └─ VITE_APP_NAME=Homestay Management
+
+🚀 DEPLOYMENT:
+
+   Frontend:
+   - Build: npm run build
+   - Output: dist/
+   - Deploy to: Vercel, Netlify, or static hosting
+   
+   Backend:
+   - Node server
+   - Deploy to: Heroku, Railway, VPS
+   - Database: MySQL on cloud (AWS RDS, ClearDB)
+   
+   Files:
+   - Uploads: AWS S3 or Cloudinary (recommended for production)
+
+═══════════════════════════════════════════════════════════════════════════════
+                                  KẾT THÚC
+═══════════════════════════════════════════════════════════════════════════════
+
+📝 Ghi chú:
+   - File này được tạo tự động từ hệ thống
+   - Cập nhật lần cuối: 2025-10-11
+   - Phiên bản: 1.0.0
+   
+📞 Liên hệ hỗ trợ:
+   - Email: support@homestay.com
+   - GitHub: [repository URL]
+   
+✅ Checklist triển khai:
+   [ ] Setup database
+   [ ] Configure environment variables
+   [ ] Test all API endpoints
+   [ ] Test payment integration
+   [ ] Setup email service
+   [ ] Deploy backend
+   [ ] Deploy frontend
+   [ ] Setup SSL certificate
+   [ ] Configure domain
+   [ ] Final testing
+
+═══════════════════════════════════════════════════════════════════════════════
+
+
+

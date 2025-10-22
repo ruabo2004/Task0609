@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { 
   UsersIcon, 
   HomeIcon, 
   CurrencyDollarIcon,
   ChartBarIcon,
   ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon
+  ArrowTrendingDownIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline';
 import { apiService } from '@/services/api';
 import toast from 'react-hot-toast';
@@ -42,6 +44,38 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleDeleteAllRevenue = async () => {
+    if (!confirm('⚠️ CẢNH BÁO: Bạn có chắc chắn muốn RESET TOÀN BỘ HỆ THỐNG?\n\n' +
+      'Hành động này sẽ:\n' +
+      '✓ Xóa tất cả doanh thu\n' +
+      '✓ Xóa tất cả bookings\n' +
+      '✓ Xóa tất cả dịch vụ đã sử dụng\n' +
+      '✓ Reset tất cả phòng về trạng thái sẵn sàng (trừ phòng đang bảo trì)\n\n' +
+      'Hành động này KHÔNG THỂ HOÀN TÁC!')) {
+      return;
+    }
+
+    try {
+      // Gọi API để reset toàn bộ hệ thống
+      await apiService.delete('/payments/all');
+      toast.success('Đã reset toàn bộ hệ thống thành công');
+      // Reload dashboard data
+      fetchDashboardData();
+    } catch (error) {
+      console.error('Error resetting system:', error);
+      
+      // Handle validation errors
+      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        error.response.data.errors.forEach(err => {
+          const message = err.msg || err.message || 'Lỗi validation';
+          toast.error(message);
+        });
+      } else {
+        toast.error(error.response?.data?.message || 'Không thể reset hệ thống');
+      }
+    }
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('vi-VN', {
       style: 'currency',
@@ -53,9 +87,9 @@ const AdminDashboard = () => {
     <Card>
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
-          <div className="flex-1 min-w-0 pr-4">
+          <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-600">{title}</p>
-            <p className="text-lg font-bold mt-2 whitespace-nowrap overflow-hidden text-ellipsis">{value}</p>
+            <p className="text-2xl font-bold mt-2 text-green-600 break-words">{value}</p>
             {trend !== undefined && (
               <div className={`flex items-center mt-2 text-sm ${trend >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 {trend >= 0 ? (
@@ -66,9 +100,6 @@ const AdminDashboard = () => {
                 <span>{Math.abs(trend)}%</span>
               </div>
             )}
-          </div>
-          <div className={`p-3 bg-${color}-100 rounded-lg flex-shrink-0`}>
-            <Icon className={`w-8 h-8 text-${color}-600`} />
           </div>
         </div>
       </CardContent>
@@ -85,9 +116,19 @@ const AdminDashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-        <p className="text-gray-600 mt-1">Tổng quan hệ thống quản lý</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+          <p className="text-gray-600 mt-1">Tổng quan hệ thống quản lý</p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={handleDeleteAllRevenue}
+          className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400"
+        >
+          <TrashIcon className="w-4 h-4 mr-2" />
+          Reset Toàn Bộ Hệ Thống
+        </Button>
       </div>
 
       {/* Overview Stats */}
@@ -137,7 +178,7 @@ const AdminDashboard = () => {
                 ))}
                 <div className="pt-4 border-t">
                   <div className="flex justify-between items-center">
-                    <span className="font-semibold">Tổng:</span>
+                    <span className="font-semibold">Tổng cộng:</span>
                     <span className="text-lg font-bold text-green-600">
                       {formatCurrency(revenue?.total || 0)}
                     </span>

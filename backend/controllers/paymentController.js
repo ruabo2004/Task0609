@@ -122,9 +122,6 @@ const paymentController = {
              WHERE booking_id = ? AND payment_method = 'additional_services' AND payment_status = 'pending' AND id != ?`,
             [booking_id, payment.id]
           );
-          console.log(
-            `Updated all pending additional_services payments for booking ${booking_id} to completed`
-          );
         } catch (error) {
           console.error("Error updating pending payments:", error);
           // Don't fail the main request if this fails
@@ -209,9 +206,6 @@ const paymentController = {
              SET payment_status = 'completed', payment_date = NOW() 
              WHERE booking_id = ? AND payment_method = 'additional_services' AND payment_status = 'pending' AND id != ?`,
             [payment.booking_id, payment.id]
-          );
-          console.log(
-            `Updated all pending additional_services payments for booking ${payment.booking_id} to completed`
           );
         } catch (error) {
           console.error("Error updating pending payments:", error);
@@ -382,6 +376,43 @@ const paymentController = {
         "Booking payments retrieved successfully"
       );
     } catch (err) {
+      next(err);
+    }
+  },
+
+  deleteAllPayments: async (req, res, next) => {
+    try {
+      const bookingServicesResult = await executeQuery(
+        "DELETE FROM booking_services"
+      );
+
+      const paymentsResult = await executeQuery("DELETE FROM payments");
+
+      const bookingsResult = await executeQuery("DELETE FROM bookings");
+
+      const resetRoomsQuery = `
+        UPDATE rooms 
+        SET status = 'available'
+        WHERE status IN ('occupied', 'reserved')
+      `;
+      const roomsResult = await executeQuery(resetRoomsQuery);
+
+      return success(
+        res,
+        {
+          deletedPayments: paymentsResult.affectedRows,
+          deletedBookingServices: bookingServicesResult.affectedRows,
+          deletedBookings: bookingsResult.affectedRows,
+          resetRooms: roomsResult.affectedRows,
+          total:
+            paymentsResult.affectedRows +
+            bookingServicesResult.affectedRows +
+            bookingsResult.affectedRows,
+        },
+        `Đã reset hệ thống: ${paymentsResult.affectedRows} thanh toán, ${bookingServicesResult.affectedRows} dịch vụ, ${bookingsResult.affectedRows} bookings, ${roomsResult.affectedRows} phòng`
+      );
+    } catch (err) {
+      console.error("❌ [ERROR] Reset system:", err);
       next(err);
     }
   },

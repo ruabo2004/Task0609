@@ -9,6 +9,7 @@ const paymentController = require("./paymentController");
 const serviceController = require("./serviceController");
 const reviewController = require("./reviewController");
 const reportController = require("./reportController");
+const contactController = require("./contactController");
 
 // Employee Module Controllers
 const staffProfileController = require("./staffProfileController");
@@ -28,6 +29,7 @@ module.exports = {
   serviceController,
   reviewController,
   reportController,
+  contactController,
   // Employee Module
   staffProfileController,
   workShiftController,

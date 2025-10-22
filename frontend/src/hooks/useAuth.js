@@ -31,7 +31,7 @@ export const useLogin = (options = {}) => {
       return result;
     },
     {
-      showSuccessToast: true,
+      showSuccessToast: false, // Handle success toast in component
       showErrorToast: true,
       ...options,
     }

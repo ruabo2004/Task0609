@@ -28,7 +28,7 @@ const translateRoomType = (roomType) => {
   const translations = {
     'single': 'Phòng đơn',
     'double': 'Phòng đôi', 
-    'suite': 'Phòng suite',
+    'suite': 'Cao cấp',
     'family': 'Phòng gia đình',
     'deluxe': 'Phòng deluxe',
     'standard': 'Phòng tiêu chuẩn',
@@ -168,7 +168,7 @@ const RoomsPage = () => {
     { value: '', label: 'Tất cả loại phòng' },
     { value: 'single', label: 'Phòng đơn' },
     { value: 'double', label: 'Phòng đôi' },
-    { value: 'suite', label: 'Phòng suite' },
+    { value: 'suite', label: 'Cao cấp' },
     { value: 'family', label: 'Phòng gia đình' },
   ];
 
@@ -738,18 +738,23 @@ const RoomsPage = () => {
                   >
                     Chi tiết
                   </Link>
-                <Button
-                  variant={room.status === 'available' ? 'primary' : 'secondary'}
-                    className={`flex-2 font-semibold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg ${
-                      room.status === 'available' 
-                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white' 
-                        : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                    }`}
-                  disabled={room.status !== 'available'}
-                    to={room.status === 'available' ? `/booking/new?roomId=${room.id}` : undefined}
-                >
-                    {room.status === 'available' ? 'Đặt ngay' : 'Không có sẵn'}
-                </Button>
+                {room.status === 'available' ? (
+                  <Button
+                    variant="primary"
+                    to={`/booking/new?roomId=${room.id}`}
+                    className="flex-2 font-semibold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+                  >
+                    Đặt ngay
+                  </Button>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    disabled
+                    className="flex-2 font-semibold py-3 px-6 rounded-xl bg-gray-200 text-gray-500 cursor-not-allowed"
+                  >
+                    Không có sẵn
+                  </Button>
+                )}
                 </div>
               </div>
             </CardContent>
@@ -763,8 +768,8 @@ const RoomsPage = () => {
         <div className="mt-12 bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="text-sm text-gray-600">
-              Hiển thị <span className="font-semibold">{((pagination.page - 1) * 6) + 1}</span> đến{' '}
-              <span className="font-semibold">{Math.min(pagination.page * 6, pagination.total)}</span> trong tổng số{' '}
+              Hiển thị <span className="font-semibold">{((pagination.page - 1) * pagination.limit) + 1}</span> đến{' '}
+              <span className="font-semibold">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> trong tổng số{' '}
               <span className="font-semibold">{pagination.total}</span> phòng
             </div>
             

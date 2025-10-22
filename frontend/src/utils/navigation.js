@@ -64,52 +64,10 @@ export const getNavigationItems = (userRole) => {
       description: 'Staff overview and metrics',
     },
     {
-      name: 'My Profile',
-      href: '/staff/profile',
-      icon: 'UserIcon',
-      description: 'Manage my staff profile',
-    },
-    {
-      name: 'My Shifts',
-      href: '/staff/shifts',
-      icon: 'ClockIcon',
-      description: 'View and manage my work shifts',
-    },
-    {
-      name: 'My Tasks',
-      href: '/staff/tasks',
-      icon: 'CheckSquareIcon',
-      description: 'Manage my assigned tasks',
-    },
-    {
-      name: 'Attendance',
-      href: '/staff/attendance',
-      icon: 'CalendarCheckIcon',
-      description: 'Check-in/out and view attendance',
-    },
-    {
       name: 'Bookings',
       href: '/staff/bookings',
       icon: 'CalendarDaysIcon',
       description: 'Manage all bookings',
-    },
-    {
-      name: 'Rooms',
-      href: '/staff/rooms',
-      icon: 'BuildingOfficeIcon',
-      description: 'Manage room inventory',
-    },
-    {
-      name: 'Customers',
-      href: '/staff/customers',
-      icon: 'UsersIcon',
-      description: 'Manage customer accounts',
-    },
-    {
-      name: 'Reports',
-      href: '/staff/reports',
-      icon: 'DocumentChartBarIcon',
-      description: 'View reports and analytics',
     },
   ];
 
@@ -127,40 +85,22 @@ export const getNavigationItems = (userRole) => {
       description: 'Manage all users',
     },
     {
-      name: 'Staff Management',
-      href: '/admin/staff',
-      icon: 'UserGroupIcon',
-      description: 'Manage staff profiles and permissions',
+      name: 'Room Management',
+      href: '/admin/rooms',
+      icon: 'HomeIcon',
+      description: 'Manage rooms',
     },
     {
-      name: 'Staff Scheduling',
-      href: '/admin/schedules',
-      icon: 'CalendarDaysIcon',
-      description: 'Manage staff shifts and schedules',
+      name: 'Service Management',
+      href: '/admin/services',
+      icon: 'WrenchScrewdriverIcon',
+      description: 'Manage services',
     },
     {
-      name: 'Task Management',
-      href: '/admin/tasks',
-      icon: 'ClipboardDocumentListIcon',
-      description: 'Assign and monitor staff tasks',
-    },
-    {
-      name: 'Attendance Reports',
-      href: '/admin/attendance',
-      icon: 'ClockIcon',
-      description: 'Monitor staff attendance and reports',
-    },
-    {
-      name: 'Analytics',
-      href: '/admin/analytics',
-      icon: 'ChartPieIcon',
-      description: 'Advanced analytics',
-    },
-    {
-      name: 'Settings',
-      href: '/admin/settings',
-      icon: 'CogIcon',
-      description: 'System configuration',
+      name: 'Contact Forms',
+      href: '/admin/contacts',
+      icon: 'EnvelopeIcon',
+      description: 'Manage contact form submissions',
     },
   ];
 
@@ -264,9 +204,9 @@ export const getDashboardPath = (userRole) => {
     case 'customer':
       return '/'; // Customer goes to homepage after login
     case 'staff':
-      return '/staff/dashboard';
+      return '/staff/dashboard'; // Staff goes to staff dashboard after login
     case 'admin':
-      return '/admin/dashboard';
+      return '/admin/dashboard'; // Admin goes to admin dashboard after login
     default:
       return '/';
   }
@@ -290,10 +230,7 @@ export const getUserRoutes = (userRole) => {
       base: '/staff',
       dashboard: '/staff/dashboard',
       bookings: '/staff/bookings',
-      rooms: '/staff/rooms',
-      customers: '/staff/customers',
-      reports: '/staff/reports',
-      allowedPaths: ['/staff'],
+      allowedPaths: ['/staff'], // Staff CANNOT access customer booking pages (/rooms, /booking/new)
     },
     admin: {
       base: '/admin',

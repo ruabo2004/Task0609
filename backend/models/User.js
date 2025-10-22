@@ -20,6 +20,7 @@ class User {
     this.role = userData.role;
     this.avatar = userData.avatar;
     this.is_active = userData.is_active;
+    this.department = userData.department;
     this.created_at = userData.created_at;
     this.updated_at = userData.updated_at;
   }
@@ -164,16 +165,19 @@ class User {
   // @desc    Update user data
   async update(updateData) {
     try {
-
       // TODO: Implement in Week 3
       const allowedFields = [
         "full_name",
+        "email",
         "phone",
         "date_of_birth",
         "nationality",
         "id_number",
         "address",
         "avatar",
+        "role",
+        "is_active",
+        "department",
       ];
       const updateFields = [];
       const values = [];
@@ -184,7 +188,6 @@ class User {
           // Convert empty strings to null for database
           const value = updateData[field] === "" ? null : updateData[field];
           values.push(value);
-
         }
       }
 
@@ -243,6 +246,7 @@ class User {
       role: this.role,
       avatar: this.avatar,
       is_active: this.is_active,
+      department: this.department,
       created_at: this.created_at,
       updated_at: this.updated_at,
     };

@@ -37,6 +37,7 @@ import AdminDashboard from '@/pages/admin/Dashboard';
 import AdminUsers from '@/pages/admin/UserManagement';
 import AdminRooms from '@/pages/admin/RoomManagement';
 import AdminServices from '@/pages/admin/ServiceManagement';
+import AdminContacts from '@/pages/admin/ContactManagement';
 
 // Protected Route Components
 import ProtectedRoute from '@/components/routing/ProtectedRoute';
@@ -83,7 +84,11 @@ export const router = createBrowserRouter([
         children: [
           {
             path: 'new',
-            element: <BookingPage />,
+            element: (
+              <RoleBasedRoute allowedRoles={['customer']} redirectTo="/admin/users">
+                <BookingPage />
+              </RoleBasedRoute>
+            ),
           },
         ],
       },
@@ -230,6 +235,10 @@ export const router = createBrowserRouter([
       {
         path: 'users',
         element: <AdminUsers />,
+      },
+      {
+        path: 'contacts',
+        element: <AdminContacts />,
       },
     ],
   },

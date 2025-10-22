@@ -161,21 +161,105 @@ const validateCreateUser = [
   body("email")
     .isEmail()
     .normalizeEmail()
-    .withMessage("Please provide a valid email"),
+    .withMessage("Vui lòng nhập email hợp lệ"),
   body("password")
     .isLength({ min: 6 })
-    .withMessage("Password must be at least 6 characters long"),
+    .withMessage("Mật khẩu phải có ít nhất 6 ký tự"),
   body("full_name")
     .trim()
     .isLength({ min: 2, max: 100 })
-    .withMessage("Full name must be between 2 and 100 characters"),
+    .withMessage("Họ tên phải từ 2 đến 100 ký tự"),
   body("phone")
-    .optional()
-    .isMobilePhone("vi-VN")
-    .withMessage("Please provide a valid Vietnamese phone number"),
+    .optional({ nullable: true, checkFalsy: true })
+    .custom((value) => {
+      if (!value || value === "") return true;
+
+      if (value.length < 10 || value.length > 11) {
+        throw new Error("Số điện thoại phải có 10-11 chữ số");
+      }
+
+      if (!/^0[0-9]{9,10}$/.test(value)) {
+        throw new Error(
+          "Số điện thoại phải bắt đầu bằng số 0 và có 10-11 chữ số"
+        );
+      }
+
+      return true;
+    }),
+  body("date_of_birth")
+    .optional({ nullable: true, checkFalsy: true })
+    .custom((value) => {
+      if (!value || value === "") return true;
+
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        throw new Error("Ngày sinh phải có định dạng YYYY-MM-DD");
+      }
+
+      const date = new Date(value);
+      if (isNaN(date.getTime())) {
+        throw new Error("Ngày sinh không hợp lệ");
+      }
+
+      if (date > new Date()) {
+        throw new Error("Ngày sinh không thể là ngày trong tương lai");
+      }
+
+      const age = (new Date() - date) / (365.25 * 24 * 60 * 60 * 1000);
+      if (age < 16) {
+        throw new Error("Người dùng phải từ 16 tuổi trở lên");
+      }
+      if (age > 120) {
+        throw new Error("Ngày sinh không hợp lý");
+      }
+
+      return true;
+    }),
+  body("nationality")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .custom((value) => {
+      if (!value || value === "") return true;
+      if (value.length < 2 || value.length > 100) {
+        throw new Error("Quốc tịch phải từ 2 đến 100 ký tự");
+      }
+      return true;
+    }),
+  body("id_number")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .custom((value) => {
+      if (!value || value === "") return true;
+      if (!/^[0-9]+$/.test(value)) {
+        throw new Error("CMND/CCCD chỉ được chứa số");
+      }
+      if (value.length !== 9 && value.length !== 12) {
+        throw new Error("CMND phải có đúng 9 số hoặc CCCD phải có đúng 12 số");
+      }
+      return true;
+    }),
+  body("address")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .custom((value) => {
+      if (!value || value === "") return true;
+      if (value.length > 500) {
+        throw new Error("Địa chỉ không được vượt quá 500 ký tự");
+      }
+      return true;
+    }),
+  body("department")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .custom((value) => {
+      if (!value || value === "") return true;
+      if (value.length < 2 || value.length > 100) {
+        throw new Error("Phòng ban phải từ 2 đến 100 ký tự");
+      }
+      return true;
+    }),
   body("role")
     .isIn(["customer", "staff", "admin"])
-    .withMessage("Role must be customer, staff, or admin"),
+    .withMessage("Vai trò phải là customer, staff hoặc admin"),
   handleValidationErrors,
 ];
 
@@ -183,23 +267,114 @@ const validateUpdateUser = [
   param("id")
     .isInt({ min: 1 })
     .withMessage("User ID must be a positive integer"),
+  body("email")
+    .optional()
+    .isEmail()
+    .normalizeEmail()
+    .withMessage("Vui lòng nhập email hợp lệ"),
   body("full_name")
     .optional()
     .trim()
     .isLength({ min: 2, max: 100 })
-    .withMessage("Full name must be between 2 and 100 characters"),
+    .withMessage("Họ tên phải từ 2 đến 100 ký tự"),
   body("phone")
-    .optional()
-    .isMobilePhone("vi-VN")
-    .withMessage("Please provide a valid Vietnamese phone number"),
+    .optional({ nullable: true, checkFalsy: true })
+    .custom((value) => {
+      if (!value || value === "") return true;
+
+      if (value.length < 10 || value.length > 11) {
+        throw new Error("Số điện thoại phải có 10-11 chữ số");
+      }
+
+      if (!/^0[0-9]{9,10}$/.test(value)) {
+        throw new Error(
+          "Số điện thoại phải bắt đầu bằng số 0 và có 10-11 chữ số"
+        );
+      }
+
+      return true;
+    }),
+  body("date_of_birth")
+    .optional({ nullable: true, checkFalsy: true })
+    .custom((value) => {
+      if (!value || value === "") return true;
+
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        throw new Error("Ngày sinh phải có định dạng YYYY-MM-DD");
+      }
+
+      const date = new Date(value);
+      if (isNaN(date.getTime())) {
+        throw new Error("Ngày sinh không hợp lệ");
+      }
+
+      // Check if date is not in the future
+      if (date > new Date()) {
+        throw new Error("Ngày sinh không thể là ngày trong tương lai");
+      }
+
+      // Check if age is reasonable (between 16 and 120 years)
+      const age = (new Date() - date) / (365.25 * 24 * 60 * 60 * 1000);
+      if (age < 16) {
+        throw new Error("Người dùng phải từ 16 tuổi trở lên");
+      }
+      if (age > 120) {
+        throw new Error("Ngày sinh không hợp lý");
+      }
+
+      return true;
+    }),
+  body("nationality")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .custom((value) => {
+      if (!value || value === "") return true;
+      if (value.length < 2 || value.length > 100) {
+        throw new Error("Quốc tịch phải từ 2 đến 100 ký tự");
+      }
+      return true;
+    }),
+  body("id_number")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .custom((value) => {
+      if (!value || value === "") return true;
+      if (!/^[0-9]+$/.test(value)) {
+        throw new Error("CMND/CCCD chỉ được chứa số");
+      }
+      if (value.length !== 9 && value.length !== 12) {
+        throw new Error("CMND phải có đúng 9 số hoặc CCCD phải có đúng 12 số");
+      }
+      return true;
+    }),
+  body("address")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .custom((value) => {
+      if (!value || value === "") return true;
+      if (value.length > 500) {
+        throw new Error("Địa chỉ không được vượt quá 500 ký tự");
+      }
+      return true;
+    }),
+  body("department")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .custom((value) => {
+      if (!value || value === "") return true;
+      if (value.length < 2 || value.length > 100) {
+        throw new Error("Phòng ban phải từ 2 đến 100 ký tự");
+      }
+      return true;
+    }),
   body("role")
     .optional()
     .isIn(["customer", "staff", "admin"])
-    .withMessage("Role must be customer, staff, or admin"),
+    .withMessage("Vai trò phải là customer, staff hoặc admin"),
   body("is_active")
     .optional()
     .isBoolean()
-    .withMessage("is_active must be a boolean"),
+    .withMessage("Trạng thái hoạt động phải là true/false"),
   handleValidationErrors,
 ];
 
@@ -351,9 +526,9 @@ const validateCreatePayment = [
     .isInt({ min: 1 })
     .withMessage("Booking ID must be a positive integer"),
   body("payment_method")
-    .isIn(["cash", "card", "vnpay", "momo", "additional_services"])
+    .isIn(["cash", "card", "vnpay", "momo", "pay_later", "additional_services"])
     .withMessage(
-      "Payment method must be cash, card, vnpay, momo, or additional_services"
+      "Payment method must be cash, card, vnpay, momo, pay_later, or additional_services"
     ),
   body("amount")
     .optional()

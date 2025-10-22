@@ -22,6 +22,7 @@ import {
   XMarkIcon,
   CalendarDaysIcon,
   StarIcon,
+  CurrencyDollarIcon,
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarSolidIcon } from '@heroicons/react/24/solid';
 import { useBookings, useCancelBooking } from '@/hooks/useBookings';
@@ -33,7 +34,7 @@ const translateRoomType = (roomType) => {
   const translations = {
     'single': 'Phòng đơn',
     'double': 'Phòng đôi', 
-    'suite': 'Phòng suite',
+    'suite': 'Cao cấp',
     'family': 'Phòng gia đình',
     'deluxe': 'Phòng deluxe',
     'standard': 'Phòng tiêu chuẩn',
@@ -174,8 +175,8 @@ const MyBookings = () => {
   
   // Modals
   const [selectedBooking, setSelectedBooking] = useState(null);
-  const [showCancelModal, setShowCancelModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   
   // Review states
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -184,6 +185,8 @@ const MyBookings = () => {
   // Payment states
   const [pendingPayments, setPendingPayments] = useState({});
   const [paymentLoading, setPaymentLoading] = useState({});
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentBooking, setPaymentBooking] = useState(null);
 
   // Build filters for API call
   const filters = React.useMemo(() => {
@@ -246,7 +249,21 @@ const MyBookings = () => {
     },
     onError: (error) => {
       console.error('Failed to cancel booking:', error);
-      toast.error('Không thể hủy đặt phòng. Vui lòng thử lại.');
+      console.error('Error response:', error.response?.data);
+      
+      // Get error message from backend response
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          'Không thể hủy đặt phòng. Vui lòng thử lại.';
+      toast.error(errorMessage, { duration: 5000 });
+      
+      // Refetch để cập nhật trạng thái mới nhất (phòng trường hợp backend đã cancel nhưng trả về error)
+      setTimeout(() => {
+        refetch();
+      }, 1000);
+      
+      setShowCancelModal(false);
+      setSelectedBooking(null);
     }
   });
 
@@ -464,19 +481,6 @@ const MyBookings = () => {
     });
   };
 
-  // Handle cancel booking
-  const handleCancelBooking = () => {
-    if (!selectedBooking?.id) {
-      toast.error('Không thể hủy đặt phòng: Thông tin booking không hợp lệ');
-      return;
-    }
-    
-    cancelBookingMutation.mutate({ 
-      id: selectedBooking.id, 
-      reason: 'Cancelled by customer' 
-    });
-  };
-
   // Review handlers
   const handleShowReview = (booking) => {
     setReviewBooking(booking);
@@ -497,6 +501,53 @@ const MyBookings = () => {
       console.error('Error submitting review:', error);
       toast.error('Có lỗi xảy ra khi gửi đánh giá');
       throw error;
+    }
+  };
+
+  // Payment handlers
+  const handleShowPayment = (booking) => {
+    setPaymentBooking(booking);
+    setShowPaymentModal(true);
+  };
+
+  const handlePayment = async (method, paymentType = 'captureWallet') => {
+    if (!paymentBooking) return;
+    
+    setPaymentLoading({ ...paymentLoading, [paymentBooking.id]: true });
+
+    try {
+      if (method === 'MoMo') {
+        const paymentData = {
+          bookingId: paymentBooking.id,
+          amount: paymentBooking.total_amount,
+          orderInfo: `Thanh toán đặt phòng #${paymentBooking.id} - Phòng ${paymentBooking.room_number}`,
+          requestType: paymentType
+        };
+
+        const response = await apiService.payments.createMomoPayment(paymentData);
+        
+        if (response.data.success && response.data.data.payUrl) {
+          const paymentMethod = paymentType === 'payWithATM' ? 'thẻ ATM/Visa/Master' : 'MoMo';
+          toast.success(`Đang chuyển đến trang thanh toán ${paymentMethod}...`);
+          window.location.href = response.data.data.payUrl;
+        } else {
+          toast.error('Không thể tạo link thanh toán MoMo');
+        }
+      }
+    } catch (error) {
+      console.error('Payment error:', error);
+      
+      // Handle validation errors
+      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        error.response.data.errors.forEach(err => {
+          const message = err.msg || err.message || 'Lỗi validation';
+          toast.error(message);
+        });
+      } else {
+        toast.error(error.response?.data?.message || error.message || 'Lỗi khi tạo thanh toán');
+      }
+    } finally {
+      setPaymentLoading({ ...paymentLoading, [paymentBooking.id]: false });
     }
   };
 
@@ -650,6 +701,19 @@ const MyBookings = () => {
           >
             Xem
           </Button>
+
+          {/* Payment button for pending bookings without payment */}
+          {row?.status === 'pending' && !row?.payment_status && (
+            <Button
+              size="xs"
+              variant="primary"
+              leftIcon={<CurrencyDollarIcon className="h-3 w-3" />}
+              onClick={() => handleShowPayment(row)}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              Thanh toán
+            </Button>
+          )}
 
           {/* Review button for checked out bookings */}
           {row?.status === 'checked_out' && !row?.has_review && (
@@ -997,14 +1061,152 @@ const MyBookings = () => {
         onSubmit={handleSubmitReview}
       />
 
+      {/* Payment Modal */}
+      <Modal 
+        isOpen={showPaymentModal} 
+        onClose={() => {
+          setShowPaymentModal(false);
+          setPaymentBooking(null);
+        }}
+        title="Thanh toán đặt phòng"
+      >
+        <div className="p-6">
+          {paymentBooking && (
+            <div className="space-y-6">
+              {/* Booking Info */}
+              <div className="bg-gray-50 p-4 rounded-lg border">
+                <h3 className="font-semibold text-gray-900 mb-3">Thông tin đặt phòng</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Mã đặt phòng:</span>
+                    <span className="font-semibold">#{paymentBooking.id}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Phòng:</span>
+                    <span className="font-semibold">{paymentBooking.room_number} - {translateRoomType(paymentBooking.room_type)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Tổng tiền:</span>
+                    <span className="font-semibold text-green-600">
+                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(paymentBooking.total_amount)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Methods */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-gray-900">Chọn phương thức thanh toán</h3>
+                
+                <div className="bg-gradient-to-r from-pink-50 to-purple-50 p-4 rounded-xl border-2 border-pink-200">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div>
+                      <h4 className="font-bold text-gray-900">Ví MoMo</h4>
+                      <p className="text-sm text-gray-600">Chọn phương thức thanh toán MoMo</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {/* QR Code */}
+                    <button
+                      onClick={() => handlePayment('MoMo', 'captureWallet')}
+                      disabled={paymentLoading[paymentBooking.id]}
+                      className={`w-full flex items-center justify-between p-4 bg-white border-2 rounded-lg transition-all ${
+                        paymentLoading[paymentBooking.id]
+                          ? 'opacity-50 cursor-not-allowed border-gray-200' 
+                          : 'border-pink-200 hover:border-pink-400 hover:shadow-md'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="text-left">
+                          <span className="font-semibold text-gray-900">Quét mã QR</span>
+                          <p className="text-xs text-gray-600">Mở app MoMo và quét mã</p>
+                        </div>
+                      </div>
+                      <span className="text-xs font-semibold text-pink-600 bg-pink-100 px-3 py-1 rounded-full">Nhanh nhất</span>
+                    </button>
+                    
+                    {/* MoMo App */}
+                    <button
+                      onClick={() => handlePayment('MoMo', 'captureWallet')}
+                      disabled={paymentLoading[paymentBooking.id]}
+                      className={`w-full flex items-center justify-between p-4 bg-white border-2 rounded-lg transition-all ${
+                        paymentLoading[paymentBooking.id]
+                          ? 'opacity-50 cursor-not-allowed border-gray-200' 
+                          : 'border-pink-200 hover:border-pink-400 hover:shadow-md'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="text-left">
+                          <span className="font-semibold text-gray-900">Ứng dụng MoMo</span>
+                          <p className="text-xs text-gray-600">Chuyển sang app MoMo</p>
+                        </div>
+                      </div>
+                      <span className="text-xs font-semibold text-purple-600 bg-purple-100 px-3 py-1 rounded-full">Tiện lợi</span>
+                    </button>
+                    
+                    {/* ATM/Visa/Mastercard */}
+                    <button
+                      onClick={() => handlePayment('MoMo', 'payWithATM')}
+                      disabled={paymentLoading[paymentBooking.id]}
+                      className={`w-full flex items-center justify-between p-4 bg-white border-2 rounded-lg transition-all ${
+                        paymentLoading[paymentBooking.id]
+                          ? 'opacity-50 cursor-not-allowed border-gray-200' 
+                          : 'border-pink-200 hover:border-pink-400 hover:shadow-md'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="text-left">
+                          <span className="font-semibold text-gray-900">Thẻ ATM/Visa/Master</span>
+                          <p className="text-xs text-gray-600">Liên kết qua MoMo</p>
+                        </div>
+                      </div>
+                      <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-3 py-1 rounded-full">Đa dạng</span>
+                    </button>
+                  </div>
+
+                  {paymentLoading[paymentBooking.id] && (
+                    <div className="mt-4 text-center">
+                      <p className="text-sm text-gray-600 animate-pulse">⏳ Đang tạo thanh toán...</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="text-center text-sm text-gray-500 py-2 bg-gray-50 rounded-lg">
+                  <p className="flex items-center justify-center gap-2">
+                    <span>🔒</span>
+                    <span>Thanh toán được mã hóa và bảo mật bởi MoMo</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* Cancel Booking Confirmation Modal */}
       <ConfirmModal
         isOpen={showCancelModal}
-        onClose={() => setShowCancelModal(false)}
-        onConfirm={handleCancelBooking}
-        title="Hủy đặt phòng"
-        message={`Bạn có chắc chắn muốn hủy đặt phòng ${translateRoomType(selectedBooking?.room_type) || 'N/A'} (${selectedBooking?.room_number || 'N/A'})? Hành động này không thể hoàn tác.`}
+        onClose={() => {
+          if (!cancelBookingMutation.isLoading) {
+            setShowCancelModal(false);
+            setSelectedBooking(null);
+          }
+        }}
+        onConfirm={() => {
+          if (selectedBooking) {
+            cancelBookingMutation.mutate({ 
+              id: selectedBooking.id, 
+              reason: 'Cancelled by customer' 
+            });
+          }
+        }}
+        title="Xác nhận hủy đặt phòng"
+        message={`Bạn có chắc chắn muốn hủy đặt phòng ${translateRoomType(selectedBooking?.room_type)} (${selectedBooking?.room_number})? Hành động này không thể hoàn tác.`}
         confirmText="Hủy đặt phòng"
+        cancelText="Trở lại"
         confirmVariant="error"
+        isLoading={cancelBookingMutation.isLoading}
       />
     </div>
   );

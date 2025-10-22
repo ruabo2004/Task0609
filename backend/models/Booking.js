@@ -16,6 +16,17 @@ class Booking {
     this.special_requests = bookingData.special_requests;
     this.created_at = bookingData.created_at;
     this.updated_at = bookingData.updated_at;
+
+    // Customer information (from JOIN)
+    this.customer_name = bookingData.customer_name;
+    this.customer_email = bookingData.customer_email;
+    this.customer_phone = bookingData.customer_phone;
+
+    // Room information (from JOIN)
+    this.room_number = bookingData.room_number;
+    this.room_type = bookingData.room_type;
+    this.price_per_night = bookingData.price_per_night;
+    this.capacity = bookingData.capacity;
   }
 
   // Static methods for database operations
@@ -25,7 +36,7 @@ class Booking {
     try {
       const offset = (page - 1) * limit;
       let query = `
-        SELECT b.*, u.full_name as customer_name, u.email as customer_email, 
+        SELECT b.*, u.full_name as customer_name, u.email as customer_email, u.phone as customer_phone,
                r.room_number, r.room_type, r.price_per_night, r.images
         FROM bookings b
         JOIN users u ON b.user_id = u.id
@@ -80,6 +91,37 @@ class Booking {
         executeQuery(countQuery, queryParams),
       ]);
 
+      // Fetch services for all bookings
+      const bookingIds = bookings.map((b) => b.id);
+      let servicesMap = {};
+
+      if (bookingIds.length > 0) {
+        const servicesQuery = `
+          SELECT bs.*, s.name as service_name
+          FROM booking_services bs
+          JOIN services s ON bs.service_id = s.id
+          WHERE bs.booking_id IN (${bookingIds.map(() => "?").join(",")})
+        `;
+        const servicesResults = await executeQuery(servicesQuery, bookingIds);
+
+        // Group services by booking_id
+        servicesResults.forEach((service) => {
+          if (!servicesMap[service.booking_id]) {
+            servicesMap[service.booking_id] = [];
+          }
+          servicesMap[service.booking_id].push({
+            id: service.id,
+            service_id: service.service_id,
+            name: service.service_name,
+            unit_price: service.unit_price,
+            quantity: service.quantity,
+            total_price: service.total_price,
+            total_amount: service.total_price,
+            created_at: service.created_at,
+          });
+        });
+      }
+
       return {
         bookings: bookings.map((booking) => {
           // Create booking instance and add joined data
@@ -89,6 +131,7 @@ class Booking {
           bookingInstance.room_number = booking.room_number;
           bookingInstance.room_type = booking.room_type;
           bookingInstance.price_per_night = booking.price_per_night;
+          bookingInstance.services = servicesMap[booking.id] || [];
           try {
             if (booking.images) {
               bookingInstance.room_images =
@@ -97,7 +140,6 @@ class Booking {
                   : booking.images;
             }
           } catch (parseError) {
-
             bookingInstance.room_images = [];
           }
           return bookingInstance;
@@ -442,7 +484,7 @@ class Booking {
   async getServices() {
     try {
       const query = `
-        SELECT bs.*, s.name, s.description, s.category
+        SELECT bs.*, s.name, s.description, s.category, s.price
         FROM booking_services bs
         JOIN services s ON bs.service_id = s.id
         WHERE bs.booking_id = ?
@@ -504,6 +546,7 @@ class Booking {
       check_in_date: this.check_in_date,
       check_out_date: this.check_out_date,
       number_of_guests: this.number_of_guests,
+      guests_count: this.guests_count,
       total_amount: this.total_amount,
       status: this.status,
       payment_status: this.payment_status,
@@ -513,6 +556,16 @@ class Booking {
       total_nights: this.getTotalNights(),
       can_be_cancelled: this.canBeCancelled(),
       can_be_modified: this.canBeModified(),
+      services: this.services || [],
+      // Customer information
+      customer_name: this.customer_name,
+      customer_email: this.customer_email,
+      customer_phone: this.customer_phone,
+      // Room information
+      room_number: this.room_number,
+      room_type: this.room_type,
+      price_per_night: this.price_per_night,
+      capacity: this.capacity,
     };
   }
 

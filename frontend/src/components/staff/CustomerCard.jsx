@@ -119,7 +119,7 @@ const CustomerCard = ({ customer, onViewDetails }) => {
           
           <div className="flex items-center space-x-2 text-sm text-gray-600">
             <PhoneIcon className="w-4 h-4" />
-            <span>{customer.phone}</span>
+            <span>{customer.phone || 'Chưa cập nhật'}</span>
           </div>
 
           {customer.address && (
@@ -169,5 +169,11 @@ const CustomerCard = ({ customer, onViewDetails }) => {
 };
 
 export default CustomerCard;
+
+
+
+
+
+
 
 

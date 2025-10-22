@@ -80,7 +80,16 @@ export const useRooms = (filters = {}, options = {}) => {
       }
     } catch (err) {
       console.error('Update room status error:', err);
-      toast.error('Không thể cập nhật trạng thái phòng: ' + (err.response?.data?.message || err.message));
+      
+      // Handle validation errors
+      if (err.response?.data?.errors && Array.isArray(err.response.data.errors)) {
+        err.response.data.errors.forEach(error => {
+          const message = error.msg || error.message || 'Lỗi validation';
+          toast.error(message);
+        });
+      } else {
+        toast.error('Không thể cập nhật trạng thái phòng: ' + (err.response?.data?.message || err.message));
+      }
       return false;
     }
   }, []);
@@ -113,7 +122,16 @@ export const useRooms = (filters = {}, options = {}) => {
       }
     } catch (err) {
       console.error('Update maintenance error:', err);
-      toast.error('Không thể cập nhật thông tin bảo trì: ' + (err.response?.data?.message || err.message));
+      
+      // Handle validation errors
+      if (err.response?.data?.errors && Array.isArray(err.response.data.errors)) {
+        err.response.data.errors.forEach(error => {
+          const message = error.msg || error.message || 'Lỗi validation';
+          toast.error(message);
+        });
+      } else {
+        toast.error('Không thể cập nhật thông tin bảo trì: ' + (err.response?.data?.message || err.message));
+      }
       return false;
     }
   }, []);
@@ -144,7 +162,16 @@ export const useRooms = (filters = {}, options = {}) => {
       }
     } catch (err) {
       console.error('Mark room cleaned error:', err);
-      toast.error('Không thể cập nhật thông tin dọn dẹp: ' + (err.response?.data?.message || err.message));
+      
+      // Handle validation errors
+      if (err.response?.data?.errors && Array.isArray(err.response.data.errors)) {
+        err.response.data.errors.forEach(error => {
+          const message = error.msg || error.message || 'Lỗi validation';
+          toast.error(message);
+        });
+      } else {
+        toast.error('Không thể cập nhật thông tin dọn dẹp: ' + (err.response?.data?.message || err.message));
+      }
       return false;
     }
   }, []);
@@ -173,11 +200,15 @@ export const useRooms = (filters = {}, options = {}) => {
 
   const setPage = useCallback((page) => {
     setPagination(prev => ({ ...prev, page }));
-  }, []);
+    // Fetch lại data với page mới
+    const newFilters = { ...memoizedFilters, page };
+    fetchRooms(newFilters);
+  }, [memoizedFilters, fetchRooms]);
 
   const refetch = useCallback(() => {
-    fetchRooms(memoizedFilters);
-  }, [memoizedFilters, fetchRooms]);
+    const filters = { ...memoizedFilters, page: pagination.page };
+    fetchRooms(filters);
+  }, [memoizedFilters, pagination.page, fetchRooms]);
 
   return {
     data: rooms,

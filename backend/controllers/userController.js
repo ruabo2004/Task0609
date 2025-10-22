@@ -40,15 +40,9 @@ const userController = {
   // @access  Private
   updateProfile: async (req, res, next) => {
     try {
-      console.log("Update profile request:", {
-        userId: req.user.id,
-        body: req.body,
-      });
-
       // Check validation errors
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-
         return error(res, "Validation failed", 400, errors.array());
       }
 
@@ -126,13 +120,6 @@ const userController = {
       const role = req.query.role;
 
       const result = await User.getAll(page, limit, role);
-      console.log("📊 User.getAll result:", {
-        usersCount: result.users?.length,
-        total: result.total,
-        page: result.page,
-        totalPages: result.totalPages,
-      });
-
       // Convert User instances to JSON objects
       const userResponses = result.users.map((user) => user.toJSON());
 
@@ -231,7 +218,18 @@ const userController = {
       }
 
       const { id } = req.params;
-      const { full_name, phone, role, is_active } = req.body;
+      const {
+        full_name,
+        email,
+        phone,
+        role,
+        is_active,
+        date_of_birth,
+        nationality,
+        id_number,
+        address,
+        department,
+      } = req.body;
 
       const user = await User.findById(id);
       if (!user) {
@@ -243,13 +241,21 @@ const userController = {
         return forbidden(res, "Cannot deactivate your own account");
       }
 
+      // Build update object with only provided fields
+      const updateData = {};
+      if (full_name !== undefined) updateData.full_name = full_name;
+      if (email !== undefined) updateData.email = email;
+      if (phone !== undefined) updateData.phone = phone;
+      if (role !== undefined) updateData.role = role;
+      if (is_active !== undefined) updateData.is_active = is_active;
+      if (date_of_birth !== undefined) updateData.date_of_birth = date_of_birth;
+      if (nationality !== undefined) updateData.nationality = nationality;
+      if (id_number !== undefined) updateData.id_number = id_number;
+      if (address !== undefined) updateData.address = address;
+      if (department !== undefined) updateData.department = department;
+
       // Update user
-      const updatedUser = await user.update({
-        full_name,
-        phone,
-        role,
-        is_active,
-      });
+      const updatedUser = await user.update(updateData);
 
       const userResponse = updatedUser.toJSON();
       return success(res, { user: userResponse }, "User updated successfully");

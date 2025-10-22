@@ -138,8 +138,38 @@ const StaffDashboard = () => {
       // Process API results
       const bookingsData = handleResult(bookingsRes, []);
       const bookings = Array.isArray(bookingsData) ? bookingsData : (bookingsData.bookings || []);
-      const roomStats = handleResult(roomStatsRes, {});
-      const bookingStats = handleResult(bookingStatsRes, {});
+      
+      // Extract room stats from API response
+      let roomStats = {};
+      if (roomStatsRes.status === 'fulfilled' && roomStatsRes.value?.data?.success) {
+        const stats = roomStatsRes.value.data.data.statistics || {};
+        roomStats = {
+          total: stats.total_rooms || 0,
+          available: stats.available_rooms || 0,
+          occupied: stats.occupied_rooms || 0,
+          maintenance: stats.maintenance_rooms || 0,
+          occupancy_rate: stats.total_rooms > 0 
+            ? Math.round((stats.occupied_rooms / stats.total_rooms) * 100) 
+            : 0
+        };
+      }
+      
+      // Extract booking stats from API response
+      let bookingStats = {};
+      if (bookingStatsRes.status === 'fulfilled' && bookingStatsRes.value?.data?.success) {
+        const stats = bookingStatsRes.value.data.data.statistics || {};
+        bookingStats = {
+          total: stats.total_bookings || 0,
+          pending: stats.pending_bookings || 0,
+          confirmed: stats.confirmed_bookings || 0,
+          checked_in: stats.checked_in_bookings || 0,
+          completed: stats.completed_bookings || 0,
+          cancelled: stats.cancelled_bookings || 0,
+          total_revenue: stats.total_revenue || 0,
+          average_booking_value: stats.average_booking_value || 0
+        };
+      }
+      
       // Simplified metrics (per yêu cầu.txt - only booking management)
       const combinedMetrics = {
         roomStats: roomStats,
@@ -377,17 +407,6 @@ const StaffDashboard = () => {
                   </div>
                 </CardContent>
               </Card>
-              
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-center">
-                    <p className="text-sm text-gray-600">Doanh thu</p>
-                    <p className="text-xl font-bold text-green-600">
-                      ${dashboardData.chiSoHieuSuat.bookingStats.total_revenue || 0}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
             </>
           )}
         </div>
@@ -473,13 +492,6 @@ const StaffDashboard = () => {
                 <span className="text-sm font-medium text-gray-600">Đã xác nhận</span>
                 <span className="text-sm font-bold text-green-600">
                   {dashboardData.chiSoHieuSuat?.bookingStats?.confirmed || 0}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-600">Doanh thu</span>
-                <span className="text-sm font-bold text-blue-600">
-                  ${dashboardData.chiSoHieuSuat?.bookingStats?.total_revenue || 0}
                 </span>
               </div>
             </div>

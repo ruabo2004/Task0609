@@ -29,8 +29,8 @@ const StaffProfile = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
-        <p className="text-gray-600">View your account information</p>
+        <h1 className="text-2xl font-bold text-gray-900">Hồ Sơ Của Tôi</h1>
+        <p className="text-gray-600">Xem thông tin tài khoản của bạn</p>
       </div>
 
       {/* Profile Card */}
@@ -38,7 +38,7 @@ const StaffProfile = () => {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <UserIcon className="h-5 w-5" />
-            <span>Account Information</span>
+            <span>Thông Tin Tài Khoản</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -50,7 +50,7 @@ const StaffProfile = () => {
             <div>
               <h2 className="text-xl font-semibold text-gray-900">{user.full_name}</h2>
               <Badge className="mt-1 bg-blue-100 text-blue-800">
-                {user.role === 'staff' ? 'Staff Member' : user.role}
+                {user.role === 'staff' ? 'Nhân Viên' : user.role === 'admin' ? 'Quản Trị Viên' : 'Khách Hàng'}
               </Badge>
             </div>
           </div>
@@ -69,7 +69,7 @@ const StaffProfile = () => {
               <div className="flex items-start space-x-3">
                 <PhoneIcon className="h-5 w-5 text-gray-400 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-gray-700">Phone</p>
+                  <p className="text-sm font-medium text-gray-700">Số Điện Thoại</p>
                   <p className="text-sm text-gray-900">{user.phone}</p>
                 </div>
               </div>
@@ -79,7 +79,7 @@ const StaffProfile = () => {
               <div className="flex items-start space-x-3">
                 <IdentificationIcon className="h-5 w-5 text-gray-400 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-gray-700">ID Number</p>
+                  <p className="text-sm font-medium text-gray-700">Số CMND/CCCD</p>
                   <p className="text-sm text-gray-900 font-mono">{user.id_number}</p>
                 </div>
               </div>
@@ -89,7 +89,7 @@ const StaffProfile = () => {
               <div className="flex items-start space-x-3">
                 <UserIcon className="h-5 w-5 text-gray-400 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-gray-700">Nationality</p>
+                  <p className="text-sm font-medium text-gray-700">Quốc Tịch</p>
                   <p className="text-sm text-gray-900">{user.nationality}</p>
                 </div>
               </div>
@@ -101,13 +101,13 @@ const StaffProfile = () => {
             <div className="border-t pt-6 space-y-3">
               {user.address && (
                 <div>
-                  <p className="text-sm font-medium text-gray-700">Address</p>
+                  <p className="text-sm font-medium text-gray-700">Địa Chỉ</p>
                   <p className="text-sm text-gray-900">{user.address}</p>
                 </div>
               )}
               {user.created_at && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Member Since:</span>
+                  <span className="text-gray-600">Ngày Tham Gia:</span>
                   <span className="text-gray-900">{formatDate(user.created_at)}</span>
                 </div>
               )}
@@ -119,7 +119,7 @@ const StaffProfile = () => {
       {/* Info Message */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <p className="text-sm text-blue-800">
-          📝 To update your profile information, please contact the administrator.
+          📝 Để cập nhật thông tin hồ sơ của bạn, vui lòng liên hệ quản trị viên.
         </p>
       </div>
     </div>

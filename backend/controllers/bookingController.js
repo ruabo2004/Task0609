@@ -31,13 +31,6 @@ const bookingController = {
 
       const result = await Booking.getAll(filters, page, limit);
 
-      console.log("📊 Booking.getAll() result:", {
-        total: result.total,
-        count: result.bookings.length,
-        page: result.page,
-        totalPages: result.totalPages,
-      });
-
       // Serialize booking instances to JSON
       const bookingsData = result.bookings.map((booking) => {
         const bookingJson = booking.toJSON();
@@ -46,6 +39,7 @@ const bookingController = {
           ...bookingJson,
           customer_name: booking.customer_name,
           customer_email: booking.customer_email,
+          customer_phone: booking.customer_phone,
           room_number: booking.room_number,
           room_type: booking.room_type,
           price_per_night: booking.price_per_night,
@@ -54,7 +48,6 @@ const bookingController = {
       });
 
       if (bookingsData.length > 0) {
-
       }
 
       return paginated(
@@ -372,7 +365,15 @@ const bookingController = {
 
       // Check if booking can be cancelled
       if (!booking.canBeCancelled()) {
-        return error(res, "Booking cannot be cancelled", 400);
+        const statusMessages = {
+          checked_in: "Không thể hủy booking đã check-in",
+          checked_out: "Không thể hủy booking đã hoàn thành",
+          cancelled: "Booking đã được hủy trước đó",
+        };
+        const message =
+          statusMessages[booking.status] ||
+          `Không thể hủy booking với trạng thái: ${booking.status}`;
+        return error(res, message, 400);
       }
 
       const cancelledBooking = await booking.cancel();
@@ -408,6 +409,33 @@ const bookingController = {
       }
 
       const confirmedBooking = await booking.confirm();
+
+      // Check if payment exists for this booking
+      const { executeQuery } = require("../config/database");
+      const paymentCheck = await executeQuery(
+        "SELECT id, payment_status FROM payments WHERE booking_id = ? AND payment_method != 'additional_services'",
+        [id]
+      );
+
+      if (paymentCheck.length > 0) {
+        // Payment exists - update to completed
+        await executeQuery(
+          `UPDATE payments 
+           SET payment_status = 'completed', payment_date = NOW(), updated_at = NOW() 
+           WHERE booking_id = ? AND payment_status = 'pending' AND payment_method IN ('pay_later', 'cash', 'momo')`,
+          [id]
+        );
+      } else {
+        // No payment exists - create one with completed status
+        // This handles cases where booking was created without payment (e.g., direct admin creation)
+        const totalWithVAT = parseFloat(booking.total_amount) * 1.1;
+        await executeQuery(
+          `INSERT INTO payments (booking_id, amount, payment_method, payment_status, payment_date, notes, created_at) 
+           VALUES (?, ?, 'cash', 'completed', NOW(), 'Auto-created on booking confirmation', NOW())`,
+          [id, totalWithVAT]
+        );
+      }
+
       const bookingResponse = confirmedBooking.toJSON();
 
       return success(
@@ -491,25 +519,8 @@ const bookingController = {
         LIMIT 1
       `;
       const pendingPayments = await executeQuery(pendingPaymentQuery, [id]);
-
-      console.log(
-        `🔍 Checkout for booking ${id}: Found ${pendingPayments.length} pending payments:`,
-        pendingPayments
-      );
-
       if (pendingPayments.length > 0) {
         const pendingPayment = pendingPayments[0];
-
-        console.log(
-          `❌ Blocking checkout for booking ${id} due to pending payment:`,
-          {
-            id: pendingPayment.id,
-            amount: pendingPayment.amount,
-            status: pendingPayment.payment_status,
-            method: pendingPayment.payment_method,
-          }
-        );
-
         // Block checkout if there are unpaid additional services
         return error(
           res,

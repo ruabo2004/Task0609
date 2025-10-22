@@ -205,17 +205,46 @@ const adminBookingController = {
       const { id } = req.params;
 
       // Check if booking exists
-      const checkQuery = "SELECT id, status FROM bookings WHERE id = ?";
+      const checkQuery =
+        "SELECT b.*, b.total_amount FROM bookings b WHERE b.id = ?";
       const existing = await executeQuery(checkQuery, [id]);
 
       if (existing.length === 0) {
         throw ErrorFactory.notFound("Booking not found");
       }
 
+      const booking = existing[0];
+
+      // Update booking status to confirmed
       await executeQuery(
         "UPDATE bookings SET status = 'confirmed', updated_at = NOW() WHERE id = ?",
         [id]
       );
+
+      // Check if payment exists for this booking
+      const paymentCheck = await executeQuery(
+        "SELECT id, payment_status FROM payments WHERE booking_id = ? AND payment_method != 'additional_services'",
+        [id]
+      );
+
+      if (paymentCheck.length > 0) {
+        // Payment exists - update to completed
+        await executeQuery(
+          `UPDATE payments 
+           SET payment_status = 'completed', payment_date = NOW(), updated_at = NOW() 
+           WHERE booking_id = ? AND payment_status = 'pending' AND payment_method IN ('pay_later', 'cash', 'momo')`,
+          [id]
+        );
+      } else {
+        // No payment exists - create one with completed status
+        // This handles cases where booking was created without payment (e.g., direct admin creation)
+        const totalWithVAT = parseFloat(booking.total_amount) * 1.1;
+        await executeQuery(
+          `INSERT INTO payments (booking_id, amount, payment_method, payment_status, payment_date, notes, created_at) 
+           VALUES (?, ?, 'cash', 'completed', NOW(), 'Auto-created on booking confirmation', NOW())`,
+          [id, totalWithVAT]
+        );
+      }
 
       const updatedBooking = await executeQuery(
         `SELECT 

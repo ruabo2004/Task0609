@@ -13,11 +13,12 @@ const ProtectedRoute = ({
   children, 
   redirectTo = '/auth/login' 
 }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, isAuthenticated } = useAuth();
   const location = useLocation();
 
   // Show loading spinner while checking authentication status
   if (loading) {
+    console.log('ProtectedRoute: Loading...', { loading, user, isAuthenticated, path: location.pathname });
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="lg" />
@@ -27,6 +28,7 @@ const ProtectedRoute = ({
 
   // If user is not authenticated, redirect to login with return URL
   if (!user) {
+    console.log('ProtectedRoute: No user, redirecting to login', { path: location.pathname });
     return (
       <Navigate 
         to={redirectTo} 
@@ -36,8 +38,16 @@ const ProtectedRoute = ({
     );
   }
 
+  console.log('ProtectedRoute: User authenticated', { 
+    user: user.email, 
+    role: user.role, 
+    isActive: user.is_active,
+    path: location.pathname 
+  });
+
   // If user is authenticated but not active, show appropriate message
   if (!user.is_active) {
+    console.log('ProtectedRoute: User not active');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -59,6 +69,7 @@ const ProtectedRoute = ({
   }
 
   // If authenticated and active, render the protected content
+  console.log('ProtectedRoute: Access granted');
   return children;
 };
 

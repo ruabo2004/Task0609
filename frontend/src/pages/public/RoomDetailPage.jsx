@@ -10,7 +10,7 @@ const translateRoomType = (roomType) => {
   const translations = {
     'single': 'Phòng đơn',
     'double': 'Phòng đôi', 
-    'suite': 'Phòng suite',
+    'suite': 'Cao cấp',
     'family': 'Phòng gia đình',
     'deluxe': 'Phòng deluxe',
     'standard': 'Phòng tiêu chuẩn',
@@ -397,8 +397,10 @@ const RoomDetailPage = () => {
                       <div className="text-sm text-gray-600">Diện tích</div>
                     </div>
                     <div className="text-center p-4 bg-gray-50 rounded-xl border border-gray-200">
-                      <CheckCircleIcon className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                      <div className="font-bold text-green-600">Có sẵn</div>
+                      <CheckCircleIcon className={`h-8 w-8 mx-auto mb-2 ${room.status === 'available' ? 'text-green-600' : 'text-red-600'}`} />
+                      <div className={`font-bold ${room.status === 'available' ? 'text-green-600' : 'text-red-600'}`}>
+                        {room.status === 'available' ? 'Có sẵn' : 'Không có sẵn'}
+                      </div>
                       <div className="text-sm text-gray-600">Trạng thái</div>
                   </div>
                 </div>
@@ -462,14 +464,24 @@ const RoomDetailPage = () => {
                   </div>
 
                 {/* Availability Status */}
-                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl border border-green-200">
+                <div className={`flex items-center justify-between p-4 rounded-2xl border ${
+                  room.status === 'available' 
+                    ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200' 
+                    : 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200'
+                }`}>
                   <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                    <div className={`w-3 h-3 rounded-full ${
+                      room.status === 'available' ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+                    }`}></div>
                     <span className="font-semibold text-gray-700">Tình trạng</span>
                   </div>
-                  <Badge variant="success" className="bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border-green-300 px-4 py-2 rounded-full font-bold shadow-sm animate-pulse">
+                  <Badge variant={room.status === 'available' ? 'success' : 'danger'} className={`${
+                    room.status === 'available' 
+                      ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border-green-300 animate-pulse' 
+                      : 'bg-gradient-to-r from-red-100 to-orange-100 text-red-800 border-red-300'
+                  } px-4 py-2 rounded-full font-bold shadow-sm`}>
                     <CheckCircleIcon className="h-4 w-4 mr-1" />
-                    Có sẵn
+                    {room.status === 'available' ? 'Có sẵn' : 'Không có sẵn'}
                   </Badge>
               </div>
 
@@ -493,20 +505,33 @@ const RoomDetailPage = () => {
               </div>
 
                 {/* Enhanced Book Now Button */}
-              <Button
-                variant="primary"
-                fullWidth
-                    leftIcon={<CalendarDaysIcon className="h-6 w-6" />}
-                to={`/booking/new?roomId=${room.id}`}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-lg"
-                  >
-                    <div className="flex items-center justify-center">
-                      <span>Đặt Phòng Ngay</span>
-                      <div className="ml-3 transform group-hover:translate-x-1 transition-transform duration-200">
-                        <span className="text-2xl">→</span>
-                      </div>
+              {room.status === 'available' ? (
+                <Button
+                  variant="primary"
+                  fullWidth
+                  leftIcon={<CalendarDaysIcon className="h-6 w-6" />}
+                  to={`/booking/new?roomId=${room.id}`}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-lg"
+                >
+                  <div className="flex items-center justify-center">
+                    <span>Đặt Phòng Ngay</span>
+                    <div className="ml-3 transform group-hover:translate-x-1 transition-transform duration-200">
+                      <span className="text-2xl">→</span>
                     </div>
-              </Button>
+                  </div>
+                </Button>
+              ) : (
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  disabled
+                  className="bg-gray-300 text-gray-600 font-bold py-4 px-8 rounded-lg cursor-not-allowed text-lg"
+                >
+                  <div className="flex items-center justify-center">
+                    <span>Phòng không có sẵn</span>
+                  </div>
+                </Button>
+              )}
 
                 {/* Additional Info */}
                 <div className="space-y-4">

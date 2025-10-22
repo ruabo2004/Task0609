@@ -11,6 +11,7 @@ const momoRoutes = require("./momo");
 const serviceRoutes = require("./services");
 const reviewRoutes = require("./reviews");
 const reportRoutes = require("./reports");
+const contactRoutes = require("./contacts");
 
 // Admin Module Routes
 const adminRoutes = require("./admin");
@@ -30,6 +31,7 @@ router.get("/", (req, res) => {
       services: "/api/services",
       reviews: "/api/reviews",
       reports: "/api/reports",
+      contacts: "/api/contacts",
       // Admin Module
       admin_dashboard: "/api/admin/dashboard",
       admin_rooms: "/api/admin/rooms",
@@ -57,6 +59,7 @@ router.use("/payments/momo", momoRoutes);
 router.use("/services", serviceRoutes);
 router.use("/reviews", reviewRoutes);
 router.use("/reports", reportRoutes);
+router.use("/contacts", contactRoutes);
 
 // Admin Module Routes
 router.use("/admin", adminRoutes);

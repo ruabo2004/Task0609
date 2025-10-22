@@ -463,6 +463,12 @@ export const useBookings = (filters = {}, options = {}) => {
             border: '1px solid #fca5a5'
           }
         });
+      } else if (err.response?.data?.errors && Array.isArray(err.response.data.errors)) {
+        // Handle validation errors
+        err.response.data.errors.forEach(error => {
+          const message = error.msg || error.message || 'Lỗi validation';
+          toast.error(message);
+        });
       } else {
         toast.error('Không thể cập nhật trạng thái đặt phòng: ' + (err.response?.data?.message || err.message));
       }
@@ -523,7 +529,15 @@ export const useBookings = (filters = {}, options = {}) => {
 
       console.error('Add service error:', err);
 
-      toast.error('Không thể thêm dịch vụ: ' + (err.response?.data?.message || err.message));
+      // Handle validation errors
+      if (err.response?.data?.errors && Array.isArray(err.response.data.errors)) {
+        err.response.data.errors.forEach(error => {
+          const message = error.msg || error.message || 'Lỗi validation';
+          toast.error(message);
+        });
+      } else {
+        toast.error('Không thể thêm dịch vụ: ' + (err.response?.data?.message || err.message));
+      }
 
       return false;
 
@@ -581,7 +595,15 @@ export const useBookings = (filters = {}, options = {}) => {
 
       console.error('Remove service error:', err);
 
-      toast.error('Không thể xóa dịch vụ: ' + (err.response?.data?.message || err.message));
+      // Handle validation errors
+      if (err.response?.data?.errors && Array.isArray(err.response.data.errors)) {
+        err.response.data.errors.forEach(error => {
+          const message = error.msg || error.message || 'Lỗi validation';
+          toast.error(message);
+        });
+      } else {
+        toast.error('Không thể xóa dịch vụ: ' + (err.response?.data?.message || err.message));
+      }
 
       return false;
 
@@ -856,54 +878,36 @@ export const useCancelBooking = (options = {}) => {
 
   const mutate = useCallback(async ({ id, reason = '' }) => {
     try {
-
       setLoading(true);
-
       setError(null);
 
       // Call real API
-
       const response = await apiService.bookings.cancel(id, reason);
 
-      if (response.data && response.data.success) {
-
-        toast.success('Đã hủy đặt phòng thành công');
-
-        // Call onSuccess callback if provided
-        if (onSuccess) {
-          onSuccess(response.data);
-        }
-        
-        return { success: true, message: 'Booking cancelled successfully' };
-
-      } else {
-
-        throw new Error(response.data?.message || 'Hủy đặt phòng thất bại');
-
+      // Call onSuccess callback if provided
+      if (onSuccess) {
+        onSuccess(response.data);
       }
 
-    } catch (err) {
+      return { success: true, data: response.data };
 
+    } catch (err) {
       console.error('Cancel booking error:', err);
 
       const errorMessage = err.response?.data?.message || err.message || 'Không thể hủy đặt phòng';
-
       setError(errorMessage);
 
       // Call onError callback if provided
       if (onError) {
         onError(err);
       } else {
-      toast.error(errorMessage);
-
+        toast.error(errorMessage);
       }
       
       return { success: false, error: errorMessage };
 
     } finally {
-
       setLoading(false);
-
     }
 
   }, [onSuccess, onError]);

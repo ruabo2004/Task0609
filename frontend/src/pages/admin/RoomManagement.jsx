@@ -49,7 +49,7 @@ const RoomManagement = () => {
     const translations = {
       'single': 'Phòng đơn',
       'double': 'Phòng đôi', 
-      'suite': 'Phòng suite',
+      'suite': 'Cao cấp',
       'family': 'Phòng gia đình',
       'deluxe': 'Phòng deluxe',
       'standard': 'Phòng tiêu chuẩn',
@@ -215,10 +215,13 @@ const RoomManagement = () => {
     
     try {
       const submitData = {
-        ...formData,
+        room_number: formData.room_number,
+        room_type: formData.room_type,
         price_per_night: parseFloat(formData.price_per_night),
         capacity: parseInt(formData.capacity),
-        amenities: formData.amenities.split(',').map(a => a.trim()).filter(Boolean)
+        description: formData.description,
+        amenities: formData.amenities.split(',').map(a => a.trim()).filter(Boolean),
+        status: formData.status
       };
 
       if (editingRoom) {
@@ -374,7 +377,7 @@ const RoomManagement = () => {
                   <option value="all" style={{ color: '#111827', backgroundColor: '#ffffff' }}>Tất cả</option>
                   <option value="single" style={{ color: '#111827', backgroundColor: '#ffffff' }}>Phòng đơn</option>
                   <option value="double" style={{ color: '#111827', backgroundColor: '#ffffff' }}>Phòng đôi</option>
-                  <option value="suite" style={{ color: '#111827', backgroundColor: '#ffffff' }}>Phòng suite</option>
+                  <option value="suite" style={{ color: '#111827', backgroundColor: '#ffffff' }}>Cao cấp</option>
                   <option value="family" style={{ color: '#111827', backgroundColor: '#ffffff' }}>Phòng gia đình</option>
                   <option value="deluxe" style={{ color: '#111827', backgroundColor: '#ffffff' }}>Phòng deluxe</option>
                   <option value="standard" style={{ color: '#111827', backgroundColor: '#ffffff' }}>Phòng tiêu chuẩn</option>
@@ -397,7 +400,6 @@ const RoomManagement = () => {
                   <option value="available" style={{ color: '#111827', backgroundColor: '#ffffff' }}>Trống</option>
                   <option value="occupied" style={{ color: '#111827', backgroundColor: '#ffffff' }}>Đang sử dụng</option>
                   <option value="maintenance" style={{ color: '#111827', backgroundColor: '#ffffff' }}>Bảo trì</option>
-                  <option value="unavailable" style={{ color: '#111827', backgroundColor: '#ffffff' }}>Không khả dụng</option>
                 </select>
               </div>
 
@@ -599,7 +601,7 @@ const RoomManagement = () => {
                     <option value="">Chọn loại phòng</option>
                     <option value="single">Phòng đơn</option>
                     <option value="double">Phòng đôi</option>
-                    <option value="suite">Phòng suite</option>
+                    <option value="suite">Cao cấp</option>
                     <option value="family">Phòng gia đình</option>
                     <option value="deluxe">Phòng deluxe</option>
                     <option value="standard">Phòng tiêu chuẩn</option>
@@ -646,7 +648,6 @@ const RoomManagement = () => {
                     <option value="available">Trống</option>
                     <option value="occupied">Đang sử dụng</option>
                     <option value="maintenance">Bảo trì</option>
-                    <option value="unavailable">Không khả dụng</option>
                   </select>
                 </div>
               </div>

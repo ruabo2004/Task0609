@@ -13,12 +13,6 @@ const authenticate = async (req, res, next) => {
   try {
     // Get token from Authorization header
     const authHeader = req.headers.authorization;
-
-    console.log(
-      `🔍 [AUTH] ${req.method} ${req.originalUrl} - Auth header:`,
-      authHeader ? "EXISTS" : "MISSING"
-    );
-
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return unauthorized(res, "Access token is required");
     }
@@ -28,18 +22,7 @@ const authenticate = async (req, res, next) => {
     let decoded;
     try {
       decoded = verifyToken(token);
-      console.log(
-        "✅ [AUTH] Token verified, user ID:",
-        decoded.id,
-        "role:",
-        decoded.role
-      );
     } catch (tokenError) {
-      console.log(
-        "❌ [AUTH] Token verification failed:",
-        tokenError.name,
-        tokenError.message
-      );
       if (tokenError.name === "TokenExpiredError") {
         return unauthorized(res, "Access token has expired");
       } else if (tokenError.name === "JsonWebTokenError") {
@@ -67,13 +50,6 @@ const authenticate = async (req, res, next) => {
       full_name: user.full_name,
       role: user.role,
     };
-
-    console.log(
-      "✅ [AUTH] Authentication successful:",
-      user.email,
-      "role:",
-      user.role
-    );
     next();
   } catch (error) {
     console.error("Authentication error:", error);
@@ -127,27 +103,11 @@ const authorize = (...allowedRoles) => {
   return (req, res, next) => {
     // Flatten the allowedRoles array in case it's nested
     const flatRoles = allowedRoles.flat();
-
-    console.log(
-      "🔐 [AUTHZ] Checking authorization - User:",
-      req.user?.email,
-      "Role:",
-      req.user?.role,
-      "Required:",
-      flatRoles
-    );
-
     if (!req.user) {
       return unauthorized(res, "Authentication required");
     }
 
     if (!flatRoles.includes(req.user.role)) {
-      console.log(
-        "❌ [AUTHZ] Insufficient permissions - User role:",
-        req.user.role,
-        "Required:",
-        flatRoles
-      );
       return forbidden(res, "Insufficient permissions");
     }
     next();

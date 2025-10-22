@@ -1,20 +1,18 @@
-import { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import { useLogin } from '@/hooks/useAuth';
 import { useAuth } from '@/contexts/AuthContext';
 import { getDashboardPath } from '@/utils/navigation';
+import toast from 'react-hot-toast';
 
-/**
- * LoginPage component for user authentication
- */
 const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
-  
+  const [shouldRedirect, setShouldRedirect] = useState(false);
+  const redirectPathRef = useRef(null);
   const navigate = useNavigate();
-  const location = useLocation();
-  const { user, getDashboard } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   
   const {
     register,
@@ -22,36 +20,32 @@ const LoginPage = () => {
     formState: { errors },
   } = useForm();
 
-  // Use login mutation hook
   const { mutate: login, loading: isLoading } = useLogin({
-    onSuccess: (data) => {
-      // Get redirect path based on user role after successful login
-      const userRole = data?.user?.role || 'customer';
+    onSuccess: (result) => {
+      toast.success('Đăng nhập thành công!');
       
-      // Don't redirect to error pages or auth pages
-      const from = location.state?.from;
-      const shouldRedirectToFrom = from && 
-        !from.startsWith('/auth') && 
-        !from.includes('/404') && 
-        !from.includes('/unauthorized');
+      const userData = result?.user;
+      const userRole = userData?.role || 'customer';
       
-      // For customer, always go to homepage. Staff/Admin follow normal rule.
-      const redirectPath = userRole === 'customer'
-        ? '/'
-        : (shouldRedirectToFrom ? from : getDashboardPath(userRole));
+      const redirectPath = getDashboardPath(userRole);
       
-      console.log('Login redirect debug:', {
-        userRole,
-        from,
-        shouldRedirectToFrom,
-        redirectPath,
-        locationState: location.state
-      });
-      
-      // Use window.location.href for more reliable redirect
-      window.location.href = redirectPath;
+      redirectPathRef.current = redirectPath;
+      setShouldRedirect(true);
     },
   });
+
+  useEffect(() => {
+    if (shouldRedirect && redirectPathRef.current) {
+      const path = redirectPathRef.current;
+      
+      setTimeout(() => {
+        navigate(path, { replace: true });
+        
+        setShouldRedirect(false);
+        redirectPathRef.current = null;
+      }, 150);
+    }
+  }, [shouldRedirect, navigate]);
 
   const onSubmit = async (data) => {
     login(data);
@@ -75,7 +69,6 @@ const LoginPage = () => {
       </div>
 
       <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
-        {/* Email */}
         <div>
           <label htmlFor="email" className="form-label">
             Địa chỉ email
@@ -99,7 +92,6 @@ const LoginPage = () => {
           )}
         </div>
 
-        {/* Password */}
         <div>
           <label htmlFor="password" className="form-label">
             Mật khẩu
@@ -136,7 +128,6 @@ const LoginPage = () => {
           )}
         </div>
 
-        {/* Remember me & Forgot password */}
         <div className="flex items-center justify-between">
           <div className="flex items-center">
             <input
@@ -160,7 +151,6 @@ const LoginPage = () => {
           </div>
         </div>
 
-        {/* Submit button */}
         <div>
           <button
             type="submit"
@@ -179,12 +169,11 @@ const LoginPage = () => {
         </div>
       </form>
 
-      {/* Demo accounts info */}
       <div className="mt-6 p-4 bg-gray-50 rounded-md">
         <h4 className="text-sm font-medium text-gray-900 mb-2">Tài khoản Test:</h4>
         <div className="text-xs text-gray-600 space-y-1">
           <p><strong>Khách hàng:</strong> iezreal.com@gmail.com / Viettit2004@</p>
-          <p><strong>Nhân viên:</strong> nhanvien@@gmail.com / password123</p>
+          <p><strong>Nhân viên:</strong> nhanvien@gmail.com / password123</p>
           <p><strong>Quản trị:</strong> admin@gmail.com / password123</p>
         </div>
       </div>

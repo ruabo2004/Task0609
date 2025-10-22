@@ -34,7 +34,7 @@ const translateRoomType = (roomType) => {
   const translations = {
     'single': 'Phòng đơn',
     'double': 'Phòng đôi', 
-    'suite': 'Phòng suite',
+    'suite': 'Cao cấp',
     'family': 'Phòng gia đình',
     'deluxe': 'Phòng deluxe',
     'standard': 'Phòng tiêu chuẩn',
@@ -101,6 +101,23 @@ const BookingManagement = () => {
     fetchServices();
   }, []);
 
+  // Calculate total service revenue only (not including room prices)
+  const getTotalServiceRevenue = useCallback(() => {
+    if (!bookings || bookings.length === 0) return 0;
+    
+    return bookings.reduce((total, booking) => {
+      if (!booking.services || booking.services.length === 0) return total;
+      
+      const bookingServiceTotal = booking.services.reduce((sum, service) => {
+        const serviceAmount = service.total_amount || service.total_price || 
+                            ((service.unit_price || service.price || 0) * (service.quantity || 1));
+        return sum + Number(serviceAmount);
+      }, 0);
+      
+      return total + bookingServiceTotal;
+    }, 0);
+  }, [bookings]);
+
   // Handle cash payment for additional services
   const handleCashPayment = async (bookingId) => {
     try {
@@ -160,7 +177,16 @@ const BookingManagement = () => {
       }
     } catch (error) {
       console.error('Cash payment error:', error);
-      toast.error('Lỗi khi thanh toán tiền mặt');
+      
+      // Handle validation errors
+      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        error.response.data.errors.forEach(err => {
+          const message = err.msg || err.message || 'Lỗi validation';
+          toast.error(message);
+        });
+      } else {
+        toast.error(error.response?.data?.message || 'Lỗi khi thanh toán tiền mặt');
+      }
     } finally {
       setPaymentLoading(false);
     }
@@ -302,7 +328,7 @@ const BookingManagement = () => {
           </div>
           <div className="flex items-center gap-2">
             <DollarSignIcon className="w-4 h-4 text-gray-500" />
-            <span className="text-sm">{Number(booking.total_amount || 0).toLocaleString('vi-VN')} VND</span>
+            <span className="text-sm">{Number((booking.total_amount || 0) * 1.1).toLocaleString('vi-VN')} VND</span>
           </div>
           <div className="flex items-center gap-2">
             <CalendarIcon className="w-4 h-4 text-gray-500" />
@@ -399,20 +425,23 @@ const BookingManagement = () => {
             </Button>
           )}
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              setSelectedBooking(booking);
-              setServiceModalTab('current'); // Reset to current tab
-              setShowServiceModal(true);
-              // Always fetch fresh services when opening
-              loadBookingServices(booking.id);
-            }}
-          >
-            <ServiceIcon className="w-4 h-4 mr-1" />
-            Dịch vụ
-          </Button>
+          {/* Allow service management for all bookings except cancelled */}
+          {booking.status !== 'cancelled' && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setSelectedBooking(booking);
+                setServiceModalTab('current'); // Reset to current tab
+                setShowServiceModal(true);
+                // Always fetch fresh services when opening
+                loadBookingServices(booking.id);
+              }}
+            >
+              <ServiceIcon className="w-4 h-4 mr-1" />
+              Dịch vụ
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -477,8 +506,8 @@ const BookingManagement = () => {
                   <p className="font-medium">{selectedBooking.room_number} - {translateRoomType(selectedBooking.room_type) || selectedBooking.room_name || 'N/A'}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Tổng tiền</label>
-                  <p className="font-medium text-green-600">{Number(selectedBooking.total_amount || 0).toLocaleString('vi-VN')} VND</p>
+                  <label className="text-sm font-medium text-gray-500">Tổng tiền (bao gồm VAT 10%)</label>
+                  <p className="font-medium text-green-600">{Number((selectedBooking.total_amount || 0) * 1.1).toLocaleString('vi-VN')} VND</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">Check-in</label>
@@ -508,15 +537,20 @@ const BookingManagement = () => {
               <CardContent>
                 {selectedBooking.services && selectedBooking.services.length > 0 ? (
                   <div className="space-y-2">
-                    {selectedBooking.services.map((service) => (
-                      <div key={service.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                        <div>
-                          <p className="font-medium">{service.name}</p>
-                          <p className="text-sm text-gray-500">Số lượng: {service.quantity}</p>
+                    {selectedBooking.services.map((service) => {
+                      const unitPrice = Number(service.unit_price || service.price || 0);
+                      const quantity = Number(service.quantity || 1);
+                      const totalPrice = Number(service.total_price || service.total_amount || (unitPrice * quantity));
+                      return (
+                        <div key={service.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                          <div>
+                            <p className="font-medium">{service.name}</p>
+                            <p className="text-sm text-gray-500">Số lượng: {quantity}</p>
+                          </div>
+                          <p className="font-medium">{totalPrice.toLocaleString('vi-VN')} VND</p>
                         </div>
-                        <p className="font-medium">${service.price * service.quantity}</p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-gray-500">Chưa có dịch vụ bổ sung</p>
@@ -762,9 +796,12 @@ const BookingManagement = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Tổng doanh thu</p>
+                <p className="text-sm font-medium text-gray-600">Tổng doanh thu dịch vụ</p>
                 <p className="text-2xl font-bold text-green-600">
-                  ${getBookingStats().total_revenue.toFixed(2)}
+                  {new Intl.NumberFormat('vi-VN', { 
+                    style: 'currency', 
+                    currency: 'VND' 
+                  }).format(getTotalServiceRevenue())}
                 </p>
               </div>
               <DollarSignIcon className="w-8 h-8 text-green-600" />

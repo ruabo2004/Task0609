@@ -284,8 +284,17 @@ const Profile = () => {
         }, 1500);
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Không thể xóa tài khoản. Vui lòng thử lại.');
       console.error('Delete account error:', error);
+      
+      // Handle validation errors
+      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        error.response.data.errors.forEach(err => {
+          const message = err.msg || err.message || 'Lỗi validation';
+          toast.error(message);
+        });
+      } else {
+        toast.error(error.response?.data?.message || 'Không thể xóa tài khoản. Vui lòng thử lại.');
+      }
     }
   };
 

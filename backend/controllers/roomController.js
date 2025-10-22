@@ -381,13 +381,11 @@ const roomController = {
       const { id } = req.params;
 
       if (!req.files || req.files.length === 0) {
-
         return error(res, "No files uploaded", 400);
       }
 
       const room = await Room.findById(id);
       if (!room) {
-
         return notFound(res, "Room not found");
       }
 
@@ -701,6 +699,37 @@ const roomController = {
         "Room statistics retrieved successfully"
       );
     } catch (err) {
+      next(err);
+    }
+  },
+
+  resetAllRooms: async (req, res, next) => {
+    try {
+      const { executeQuery } = require("../config/database");
+      const cancelBookingsQuery = `
+        UPDATE bookings 
+        SET status = 'cancelled'
+        WHERE status IN ('pending', 'confirmed', 'checked_in')
+      `;
+      const bookingsResult = await executeQuery(cancelBookingsQuery);
+
+      const resetRoomsQuery = `
+        UPDATE rooms 
+        SET status = 'available'
+        WHERE status != 'available'
+      `;
+      const roomsResult = await executeQuery(resetRoomsQuery);
+
+      return success(
+        res,
+        {
+          cancelledBookings: bookingsResult.affectedRows,
+          resetRooms: roomsResult.affectedRows,
+        },
+        `Đã hủy ${bookingsResult.affectedRows} booking và reset ${roomsResult.affectedRows} phòng`
+      );
+    } catch (err) {
+      console.error("❌ [ERROR] Reset all rooms:", err);
       next(err);
     }
   },

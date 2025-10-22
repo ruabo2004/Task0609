@@ -126,7 +126,16 @@ export const useCreateReview = () => {
     } catch (err) {
       console.error('Create review error:', err);
       setError(err.message);
-      toast.error(err.response?.data?.message || 'Không thể tạo đánh giá');
+      
+      // Handle validation errors
+      if (err.response?.data?.errors && Array.isArray(err.response.data.errors)) {
+        err.response.data.errors.forEach(error => {
+          const message = error.msg || error.message || 'Lỗi validation';
+          toast.error(message);
+        });
+      } else {
+        toast.error(err.response?.data?.message || 'Không thể tạo đánh giá');
+      }
       throw err;
     } finally {
       setLoading(false);

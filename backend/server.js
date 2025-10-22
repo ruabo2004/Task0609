@@ -117,6 +117,11 @@ app.get("/api", (req, res) => {
 app.use(notFound);
 app.use(errorHandler);
 
+// Import cron job
+const {
+  cancelExpiredPayLaterBookings,
+} = require("./jobs/cancelExpiredPayLaterBookings");
+
 // Start server
 const startServer = async () => {
   try {
@@ -127,9 +132,18 @@ const startServer = async () => {
       process.exit(1);
     }
 
+    // Start cron job - chạy mỗi phút để kiểm tra thanh toán sau quá hạn
+    setInterval(async () => {
+      await cancelExpiredPayLaterBookings();
+    }, 60000); // Chạy mỗi 60 giây (1 phút)
+
+    console.log(
+      "✅ Cron job tự động hủy thanh toán sau đã được khởi động (chạy mỗi phút)"
+    );
+
     // Start server
     app.listen(PORT, () => {
-
+      console.log(`✅ Server đang chạy trên port ${PORT}`);
     });
   } catch (error) {
     console.error("❌ Failed to start server:", error);
@@ -139,12 +153,10 @@ const startServer = async () => {
 
 // Graceful shutdown
 process.on("SIGTERM", () => {
-
   process.exit(0);
 });
 
 process.on("SIGINT", () => {
-
   process.exit(0);
 });
 

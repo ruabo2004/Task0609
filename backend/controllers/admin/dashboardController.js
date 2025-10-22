@@ -10,8 +10,9 @@ const dashboardController = {
   // @access  Private/Admin
   getOverview: async (req, res, next) => {
     try {
-      // Calculate total revenue
-      const revenueQuery = `
+      // Calculate total revenue from ALL completed payments
+      // This includes: room bookings (with VAT) + additional services
+      const totalRevenueQuery = `
         SELECT COALESCE(SUM(p.amount), 0) as total_revenue
         FROM payments p
         WHERE p.payment_status = 'completed'
@@ -56,9 +57,9 @@ const dashboardController = {
         FROM rooms
       `;
 
-      const [revenue, bookings, rooms, staff, customers, occupancy] =
+      const [totalRevenueResult, bookings, rooms, staff, customers, occupancy] =
         await Promise.all([
-          executeQuery(revenueQuery),
+          executeQuery(totalRevenueQuery),
           executeQuery(bookingsQuery),
           executeQuery(roomsQuery),
           executeQuery(staffQuery),
@@ -71,8 +72,45 @@ const dashboardController = {
           ? (occupancy[0].occupied_rooms / occupancy[0].total_rooms) * 100
           : 0;
 
+      const totalRevenue = parseFloat(totalRevenueResult[0].total_revenue || 0);
+
+      // Calculate revenue growth (this month vs last month)
+      // Only count completed payments for accurate comparison
+      const currentMonthRevenueQuery = `
+        SELECT COALESCE(SUM(p.amount), 0) as current_month_revenue
+        FROM payments p
+        WHERE p.payment_status = 'completed' 
+          AND DATE_FORMAT(p.payment_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')
+      `;
+
+      const lastMonthRevenueQuery = `
+        SELECT COALESCE(SUM(p.amount), 0) as last_month_revenue
+        FROM payments p
+        WHERE p.payment_status = 'completed' 
+          AND DATE_FORMAT(p.payment_date, '%Y-%m') = DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m')
+      `;
+
+      const [currentMonthResult, lastMonthResult] = await Promise.all([
+        executeQuery(currentMonthRevenueQuery),
+        executeQuery(lastMonthRevenueQuery),
+      ]);
+
+      const currentMonthRevenue = parseFloat(
+        currentMonthResult[0].current_month_revenue || 0
+      );
+      const lastMonthRevenue = parseFloat(
+        lastMonthResult[0].last_month_revenue || 0
+      );
+
+      let revenueGrowth = 0;
+      if (lastMonthRevenue > 0) {
+        revenueGrowth =
+          ((currentMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100;
+        revenueGrowth = Math.round(revenueGrowth * 10) / 10;
+      }
+
       return success(res, {
-        totalRevenue: parseFloat(revenue[0].total_revenue || 0),
+        totalRevenue: totalRevenue,
         totalBookings: parseInt(bookings[0].total_bookings),
         bookingsThisMonth: parseInt(bookings[0].bookings_this_month),
         totalRooms: parseInt(rooms[0].total_rooms),
@@ -80,7 +118,7 @@ const dashboardController = {
         totalStaff: parseInt(staff[0].total_staff),
         totalCustomers: parseInt(customers[0].total_customers),
         occupancyRate: Math.round(occupancyRate * 10) / 10,
-        revenueGrowth: 12.3, // TODO: Calculate actual growth
+        revenueGrowth: revenueGrowth,
       });
     } catch (err) {
       console.error("Error in getOverview:", err);
@@ -109,7 +147,7 @@ const dashboardController = {
 
       let query = `
         SELECT 
-          DATE_FORMAT(p.payment_date, '${dateFormat}') as period,
+          DATE_FORMAT(COALESCE(p.payment_date, p.created_at), '${dateFormat}') as period,
           SUM(p.amount) as revenue,
           COUNT(DISTINCT p.booking_id) as bookings
         FROM payments p
@@ -118,11 +156,11 @@ const dashboardController = {
 
       const params = [];
       if (from && to) {
-        query += ` AND p.payment_date BETWEEN ? AND ?`;
+        query += ` AND COALESCE(p.payment_date, p.created_at) BETWEEN ? AND ?`;
         params.push(from, to);
       } else {
         // Default: last 12 months
-        query += ` AND p.payment_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)`;
+        query += ` AND COALESCE(p.payment_date, p.created_at) >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)`;
       }
 
       query += ` GROUP BY period ORDER BY period ASC`;
@@ -203,12 +241,17 @@ const dashboardController = {
           r.id as room_id,
           r.room_number,
           r.room_type,
-          COUNT(b.id) as bookings,
-          COALESCE(SUM(b.total_amount), 0) as revenue,
+          COUNT(DISTINCT b.id) as bookings,
+          COALESCE(SUM(CASE 
+            WHEN p.payment_method != 'additional_services' THEN p.amount 
+            ELSE 0 
+          END), 0) as revenue,
           COALESCE(AVG(rev.rating), 0) as avg_rating
         FROM rooms r
         LEFT JOIN bookings b ON r.id = b.room_id 
           AND b.status IN ('confirmed', 'checked_in', 'checked_out')
+        LEFT JOIN payments p ON b.id = p.booking_id 
+          AND p.payment_status = 'completed'
         LEFT JOIN reviews rev ON b.id = rev.booking_id
         GROUP BY r.id, r.room_number, r.room_type
         ORDER BY revenue DESC

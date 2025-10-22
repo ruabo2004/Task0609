@@ -8,6 +8,7 @@ import {
   CogIcon,
   ChartBarIcon,
   UserGroupIcon,
+  EnvelopeIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -81,6 +82,11 @@ const Sidebar = ({ isOpen, onClose }) => {
             name: 'Người Dùng',
             href: '/admin/users',
             icon: UserGroupIcon,
+          },
+          {
+            name: 'Tin Nhắn Liên Hệ',
+            href: '/admin/contacts',
+            icon: EnvelopeIcon,
           },
         ];
 

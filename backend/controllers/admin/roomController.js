@@ -353,11 +353,15 @@ const roomController = {
       }
       if (amenities !== undefined) {
         updates.push("amenities = ?");
-        params.push(JSON.stringify(amenities));
+        params.push(
+          typeof amenities === "string" ? amenities : JSON.stringify(amenities)
+        );
       }
       if (images !== undefined) {
         updates.push("images = ?");
-        params.push(JSON.stringify(images));
+        params.push(
+          typeof images === "string" ? images : JSON.stringify(images)
+        );
       }
       if (status !== undefined) {
         updates.push("status = ?");

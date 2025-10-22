@@ -29,7 +29,7 @@ const translateRoomType = (roomType) => {
   const translations = {
     'single': 'Phòng đơn',
     'double': 'Phòng đôi', 
-    'suite': 'Phòng suite',
+    'suite': 'Cao cấp',
     'family': 'Phòng gia đình',
     'deluxe': 'Phòng deluxe',
     'standard': 'Phòng tiêu chuẩn',
@@ -223,6 +223,13 @@ const BookingPage = () => {
         // Extract the actual room object
         const actualRoom = roomData.room;
 
+        // Kiểm tra trạng thái phòng - nếu không available thì chặn
+        if (actualRoom.status !== 'available') {
+          toast.error('Phòng này hiện không có sẵn để đặt');
+          navigate('/rooms');
+          return;
+        }
+
         setRoom(actualRoom);
       } catch (error) {
         console.error('❌ Failed to fetch room:', error);
@@ -365,7 +372,52 @@ const BookingPage = () => {
     
     setPaymentProcessing(true);
 
-    if (method === 'MoMo') {
+    if (method === 'PayLater') {
+      // Xử lý thanh toán sau
+      try {
+        if (!createdBookingId) {
+          toast.error('Vui lòng tạo đặt phòng trước');
+          setPaymentProcessing(false);
+          return;
+        }
+
+        // Tạo payment với trạng thái "pay_later"
+        const paymentData = {
+          booking_id: createdBookingId,
+          amount: calculateTotal() * 1.1, // Bao gồm thuế
+          payment_method: 'pay_later',
+          payment_status: 'pending',
+          notes: 'Thanh toán khi nhận phòng - Tự động hủy sau 5 phút'
+        };
+
+        const response = await apiService.payments.create(paymentData);
+        
+        if (response.data.success) {
+          toast.success('Đặt phòng thành công! Vui lòng thanh toán trong 5 phút để giữ phòng.');
+          
+          // Delay navigation
+          setTimeout(() => {
+            navigate('/customer/bookings');
+          }, 1500);
+        } else {
+          toast.error('Không thể tạo thanh toán');
+          setPaymentProcessing(false);
+        }
+      } catch (error) {
+        console.error('Pay later error:', error);
+        
+        // Handle validation errors
+        if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+          error.response.data.errors.forEach(err => {
+            const message = err.msg || err.message || 'Lỗi validation';
+            toast.error(message);
+          });
+        } else {
+          toast.error(error.response?.data?.message || error.message || 'Lỗi khi tạo thanh toán');
+        }
+        setPaymentProcessing(false);
+      }
+    } else if (method === 'MoMo') {
       try {
         // Get the created booking ID from the last booking
 
@@ -376,11 +428,11 @@ const BookingPage = () => {
           return;
         }
 
-        const total = calculateTotal();
+        const totalWithVAT = calculateTotal() * 1.1; // Bao gồm VAT 10%
         
         const paymentData = {
           bookingId: createdBookingId,
-          amount: total,
+          amount: totalWithVAT,
           orderInfo: `Thanh toán đặt phòng #${createdBookingId} - ${room.name || `Phòng ${room.room_number}`}`,
           requestType: paymentType // 'captureWallet' for QR/App, 'payWithATM' for ATM/Card
         };
@@ -398,7 +450,16 @@ const BookingPage = () => {
         }
       } catch (error) {
         console.error('MoMo payment error:', error);
-        toast.error('Lỗi khi tạo thanh toán MoMo: ' + (error.response?.data?.message || error.message));
+        
+        // Handle validation errors
+        if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+          error.response.data.errors.forEach(err => {
+            const message = err.msg || err.message || 'Lỗi validation';
+            toast.error(message);
+          });
+        } else {
+          toast.error(error.response?.data?.message || error.message || 'Lỗi khi tạo thanh toán MoMo');
+        }
         setPaymentProcessing(false);
       }
     } else {
@@ -959,6 +1020,33 @@ const BookingPage = () => {
                           <p className="text-green-700 text-sm">Vui lòng chọn phương thức thanh toán để hoàn tất</p>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Thanh toán sau option */}
+                    <div className="bg-gradient-to-r from-yellow-50 to-orange-50 p-4 rounded-xl border-2 border-yellow-300">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="flex-1">
+                          <h3 className="font-bold text-gray-900 text-lg">Thanh toán sau</h3>
+                          <p className="text-sm text-gray-600">Thanh toán khi nhận phòng (tự động hủy sau 5 phút nếu không thanh toán)</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handlePayment('PayLater')}
+                        disabled={paymentProcessing}
+                        className={`w-full flex items-center justify-between p-4 bg-white border-2 rounded-lg transition-all ${
+                          paymentProcessing 
+                            ? 'opacity-50 cursor-not-allowed border-gray-200' 
+                            : 'border-yellow-300 hover:border-yellow-400 hover:shadow-md'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="text-left">
+                            <span className="font-semibold text-gray-900">💳 Thanh toán khi nhận phòng</span>
+                            <p className="text-xs text-red-600 font-medium">⚠️ Đơn sẽ tự động hủy sau 5 phút nếu chưa thanh toán</p>
+                          </div>
+                        </div>
+                        <span className="text-xs font-semibold text-orange-600 bg-orange-100 px-3 py-1 rounded-full">Tiện lợi</span>
+                      </button>
                     </div>
                     
                     <div className="space-y-4">

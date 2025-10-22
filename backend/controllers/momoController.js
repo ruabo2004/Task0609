@@ -45,14 +45,6 @@ const momoController = {
       const requestId = orderId;
       const orderInfoText = orderInfo || `Thanh toán đặt phòng #${bookingId}`;
       const amountInt = parseInt(amount);
-
-      console.log("💰 MoMo Payment Details:", {
-        bookingId,
-        originalAmount: amount,
-        parsedAmount: amountInt,
-        orderInfo: orderInfoText,
-      });
-
       // Request body for MoMo
       // requestType: 'captureWallet' for QR/App, 'payWithATM' for ATM/Card
       const momoRequestType = requestType || "captureWallet";
@@ -80,14 +72,6 @@ const momoController = {
         .digest("hex");
 
       requestBody.signature = signature;
-
-      console.log("📱 MoMo Payment Request:", {
-        orderId,
-        amount: amountInt,
-        orderInfo: orderInfoText,
-        requestType: momoRequestType,
-        signature: signature.substring(0, 20) + "...",
-      });
 
       // Send request to MoMo
       const momoResponse = await axios.post(config.endpoint, requestBody, {
@@ -122,7 +106,6 @@ const momoController = {
           "Payment URL created successfully"
         );
       } else {
-
         // Fallback: Create a direct MoMo QR payment URL
         const qrPaymentUrl = `https://test-payment.momo.vn/v2/gateway/pay?partnerCode=${
           config.partnerCode
@@ -187,14 +170,6 @@ const momoController = {
         extraData,
         signature,
       } = req.query;
-
-      console.log("📱 MoMo Callback Received:", {
-        orderId,
-        resultCode,
-        message,
-        transId,
-      });
-
       // Verify signature
       const rawSignature = `accessKey=${config.accessKey}&amount=${amount}&extraData=${extraData}&message=${message}&orderId=${orderId}&orderInfo=${orderInfo}&orderType=${orderType}&partnerCode=${config.partnerCode}&payType=${payType}&requestId=${requestId}&responseTime=${responseTime}&resultCode=${resultCode}&transId=${transId}`;
 
@@ -283,14 +258,6 @@ const momoController = {
         extraData,
         signature,
       } = req.body;
-
-      console.log("📱 MoMo IPN Received:", {
-        orderId,
-        resultCode,
-        message,
-        transId,
-      });
-
       // Verify signature
       const rawSignature = `accessKey=${config.accessKey}&amount=${amount}&extraData=${extraData}&message=${message}&orderId=${orderId}&orderInfo=${orderInfo}&orderType=${orderType}&partnerCode=${config.partnerCode}&payType=${payType}&requestId=${requestId}&responseTime=${responseTime}&resultCode=${resultCode}&transId=${transId}`;
 
@@ -318,7 +285,7 @@ const momoController = {
         if (bookingId) {
           await executeQuery(
             `UPDATE payments 
-             SET payment_status = 'completed', transaction_id = ?, updated_at = NOW()
+             SET payment_status = 'completed', payment_date = NOW(), transaction_id = ?, updated_at = NOW()
              WHERE transaction_id = ? OR (booking_id = ? AND payment_method = 'momo')`,
             [transId, orderId, bookingId]
           );
@@ -328,7 +295,6 @@ const momoController = {
             [bookingId]
           );
         }
-
       } else {
         // Payment failed
         if (bookingId) {
@@ -339,7 +305,6 @@ const momoController = {
             [message, orderId, bookingId]
           );
         }
-
       }
 
       // Respond to MoMo

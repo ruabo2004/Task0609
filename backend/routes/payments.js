@@ -114,4 +114,16 @@ router.post(
   paymentController.processRefund
 );
 
+/**
+ * @route   DELETE /api/payments/all
+ * @desc    Delete all payments (Admin only) - DANGEROUS
+ * @access  Private/Admin
+ */
+router.delete(
+  "/all",
+  authenticate,
+  authorize("admin"),
+  paymentController.deleteAllPayments
+);
+
 module.exports = router;

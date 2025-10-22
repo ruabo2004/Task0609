@@ -32,6 +32,7 @@ import {
   HeartIcon as HeartSolidIcon 
 } from '@heroicons/react/24/solid';
 import toast from 'react-hot-toast';
+import { apiService } from '@/services/api';
 
 /**
  * ContactPage component - Contact information and form
@@ -49,13 +50,40 @@ const ContactPage = () => {
   const onSubmit = async (data) => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Gộp firstName và lastName thành name
+      const contactData = {
+        name: `${data.firstName} ${data.lastName}`.trim(),
+        email: data.email,
+        phone: data.phone || '',
+        subject: data.subject,
+        message: data.message
+      };
 
-      toast.success('Tin nhắn đã được gửi thành công! Chúng tôi sẽ phản hồi sớm.');
-      reset();
+      // Gửi đến backend API
+      const response = await apiService.post('/contacts', contactData);
+
+      if (response.data.success) {
+        toast.success('Tin nhắn đã được gửi thành công! Chúng tôi sẽ phản hồi sớm nhất có thể.', {
+          duration: 4000,
+          icon: '✉️',
+        });
+        reset();
+      } else {
+        toast.error(response.data.message || 'Gửi tin nhắn thất bại. Vui lòng thử lại.');
+      }
     } catch (error) {
-      toast.error('Gửi tin nhắn thất bại. Vui lòng thử lại.');
+      console.error('Contact form error:', error);
+      
+      // Handle validation errors
+      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        // Show each validation error
+        error.response.data.errors.forEach(err => {
+          const message = err.msg || err.message || 'Lỗi validation';
+          toast.error(message);
+        });
+      } else {
+        toast.error(error.response?.data?.message || 'Gửi tin nhắn thất bại. Vui lòng thử lại.');
+      }
     } finally {
       setIsLoading(false);
     }
